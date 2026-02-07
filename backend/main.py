@@ -5,12 +5,30 @@ from schemas import UserAssessmentInput, SaveProfileRequest, FinalPlan, Assessme
 from classify import classify_user_text
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Database Setup (SQLite for demo)
 engine = create_engine("sqlite:///database.db")
 SQLModel.metadata.create_all(engine)
 
 app = FastAPI()
+
+# CORS Configuration - Allow frontend to connect
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def generate_pathway_recommendations(scores: AssessmentScores, data: UserAssessmentInput):
     """Generate care pathway based on classification scores."""
@@ -190,3 +208,10 @@ async def register_and_save(request: SaveProfileRequest):
             "access_token": create_access_token({"sub": new_user.email}),
             "message": "Plan saved securely."
         }
+
+# Run the server directly with: python main.py
+if __name__ == "__main__":
+    import uvicorn
+    # For hot-reload, use: uvicorn main:app --reload
+    # For simple run, use: python main.py
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
