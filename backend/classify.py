@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Dict
+from schemas import UserAssessmentInput
 
 # The new SDK uses 'from google import genai'
 try:
@@ -25,7 +26,7 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
         print(f"Initialization Error: {e}")
         client = None
 
-def classify_user_text(user_story: str) -> Dict:
+def classify_user_text(input: UserAssessmentInput) -> Dict:
     """
     Uses the new Google Gen AI SDK to classify mental health needs.
     """
@@ -37,22 +38,86 @@ def classify_user_text(user_story: str) -> Dict:
             "support_type": "short-term professional",
             "error": "Gemini Client not initialized."
         }
+    
+    intake_json = json.dumps(input.model_dump(), ensure_ascii=False)
 
     prompt = f"""
-    Analyze this mental health check-in and provide a JSON response.
-    USER INPUT: "{user_story}"
-    
-    1. severity_tier: 1-5
-    2. urgency: 1-5
-    3. support_type: [peer/community, short-term professional, crisis escalation]
-    4. accessibility_filter:
-       - cost: "free/low cost" or "private"
-       - format: "local", "online", or "hotline"
-       - language: list any or "any"
-       - time_flexibility: "low", "standard", or "high"
-    
-    CRITICAL: If self-harm is mentioned, urgency must be 5 and support_type 'crisis escalation'.
-    RETURN ONLY JSON.
+        You are a SUPPORT TRIAGE CLASSIFIER.
+
+        Your job is NOT to diagnose or provide therapy.
+        Your job is ONLY to classify support needs and urgency
+        based on structured intake answers.
+        Never infer substance use, gambling, or addiction unless explicitly mentioned in primary_concern or intake text.
+
+        You must follow ALL rules strictly.
+
+        --------------------------------
+        ALLOWED ISSUE TYPES (choose ONE only):
+        - mental_health
+        - gambling
+        - alcohol
+        - drug_use
+        - behavioral_addiction
+        - crisis_safety
+        - general_support
+        - financial_stress
+        - relationship_family
+        - grief_loss
+        - unknown
+
+        ALLOWED URGENCY LEVELS:
+        - routine
+        - soon
+        - urgent
+        - immediate_crisis
+
+        --------------------------------
+        DECISION RULES:
+
+        1. If answer_safety contains explicit self-harm risk:
+        - issue_type = crisis_safety
+        - urgency = immediate_crisis
+
+        2. If safety_check = "I'm not sure":
+        - urgency must be at least "urgent"
+
+        3. Daily functioning matters more than emotional distress.
+
+        4. Time sensitivity maps to urgency:
+        - Not urgent → routine
+        - Soon → soon
+        - As soon as possible → urgent
+
+        5. Emotional distress alone does NOT mean crisis.
+
+        6. If information is unclear:
+        - use "unknown" or "general_support"
+
+        7. NEVER invent diagnoses or medical labels.
+
+        --------------------------------
+        SEVERITY SCORE GUIDE:
+        1 = mild distress + functioning intact
+        2 = moderate distress OR mild impairment
+        3 = major impairment OR urgent support needed
+        4 = safety concern OR cannot function
+
+        --------------------------------
+        Return ONLY valid JSON. If you produce anything other than valid JSON, the response is invalid.
+        OUTPUT FORMAT:
+        
+        {
+        "issue_type": "",
+        "urgency": "",
+        "severity_score": 1-4,
+        "needs_immediate_resources": True/False,
+        "confidence": 0-1,
+        "reasoning": "brief non-clinical explanation"
+        }
+
+        --------------------------------
+        INTAKE DATA:
+        {intake_json}
     """
 
     try:
@@ -70,13 +135,10 @@ def classify_user_text(user_story: str) -> Dict:
 
     except Exception as e:
         return {
-            "severity_tier": 3,
-            "urgency": 3,
-            "support_type": "short-term professional",
-            "error": f"AI Error: {str(e)}"
+            "issue_type": "unknown",
+            "urgency": "soon",
+            "severity_score": 2,
+            "needs_immediate_resources": False,
+            "confidence": 0,
+            "reasoning": "Model error - default moderate routing applied."
         }
-
-def test():
-    test_input = "I've been feeling really down and have had thoughts of self-harm."
-    result = classify_user_text(test_input)
-    print(json.dumps(result, indent=2))
