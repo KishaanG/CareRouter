@@ -3,6 +3,7 @@ from sqlmodel import Session, select, create_engine, SQLModel
 from models import User, Assessment
 from schemas import UserAssessmentInput, SaveProfileRequest, FinalPlan, AssessmentScores
 from classify import classify_user_text
+from locationsFinder import get_nearby_resources, pick_best_resources
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -11,66 +12,6 @@ engine = create_engine("sqlite:///database.db")
 SQLModel.metadata.create_all(engine)
 
 app = FastAPI()
-
-def generate_pathway_recommendations(scores: AssessmentScores, data: UserAssessmentInput):
-    """Generate care pathway based on classification scores."""
-    pathway = []
-    
-    # Crisis resources for immediate needs
-    if scores.needs_immediate_resources or scores.urgency == "immediate_crisis":
-        pathway.append({
-            "name": "Crisis Text Line",
-            "type": "Text",
-            "contact": "Text HOME to 741741",
-            "availability": "24/7",
-            "description": "Free, confidential crisis support via text message."
-        })
-        pathway.append({
-            "name": "988 Suicide & Crisis Lifeline",
-            "type": "Phone",
-            "contact": "988",
-            "availability": "24/7",
-            "description": "Immediate phone support for people in crisis."
-        })
-    
-    # Issue-specific resources
-    if scores.issue_type == "gambling":
-        pathway.append({
-            "name": "National Problem Gambling Helpline",
-            "type": "Phone",
-            "contact": "1-800-522-4700",
-            "availability": "24/7",
-            "description": "Confidential help for gambling problems."
-        })
-    elif scores.issue_type in ["alcohol", "drug_use"]:
-        pathway.append({
-            "name": "SAMHSA National Helpline",
-            "type": "Phone",
-            "contact": "1-800-662-4357",
-            "availability": "24/7",
-            "description": "Treatment referral and information service."
-        })
-    
-    # Professional support for moderate to high severity
-    if scores.severity_score >= 2:
-        pathway.append({
-            "name": "Psychology Today Therapist Finder",
-            "type": "Online",
-            "contact": "www.psychologytoday.com",
-            "description": "Find licensed therapists in your area."
-        })
-    
-    # General mental health resources
-    if scores.issue_type == "mental_health" or scores.issue_type == "general_support":
-        pathway.append({
-            "name": "NAMI HelpLine",
-            "type": "Phone/Text",
-            "contact": "1-800-950-6264 or text NAMI to 741741",
-            "availability": "M-F 10am-10pm ET",
-            "description": "Mental health information and resources."
-        })
-    
-    return pathway
 
 @app.post("/api/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -110,8 +51,11 @@ async def generate_plan(data: UserAssessmentInput):
     scores_dict = classify_user_text(data)
     scores = AssessmentScores(**scores_dict)
     
-    # Step 2: CHANGE THIS TO KISHAANS PART LATER
-    pathway = generate_pathway_recommendations(scores, data)
+    # Step 2: Get nearby resources from Google Maps
+    raw_places = get_nearby_resources(data, scores)
+    
+    # Step 3: Use LLM to pick the best resources based on user needs
+    pathway = pick_best_resources(data, scores, raw_places)
     
     # Return complete plan (personalized_note is in scores)
     return FinalPlan(
