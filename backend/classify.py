@@ -2,6 +2,10 @@ import os
 import json
 from typing import Dict
 from schemas import UserAssessmentInput
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # The new SDK uses 'from google import genai'
 try:
@@ -22,9 +26,15 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
     try:
         # New SDK initialization
         client = genai.Client(api_key=GEMINI_API_KEY)
+        print(f"✅ Gemini client initialized successfully")
     except Exception as e:
-        print(f"Initialization Error: {e}")
+        print(f"❌ Gemini initialization error: {e}")
         client = None
+else:
+    if not GEMINI_AVAILABLE:
+        print("❌ Google GenAI SDK not installed. Run: pip install google-genai")
+    if not GEMINI_API_KEY:
+        print("❌ GEMINI_API_KEY environment variable not set")
 
 def classify_user_text(input: UserAssessmentInput) -> Dict:
     """
@@ -33,10 +43,13 @@ def classify_user_text(input: UserAssessmentInput) -> Dict:
     # If no client or key, return the safe moderate fallback immediately
     if not client:
         return {
-            "severity_tier": 3,
-            "urgency": 3,
-            "support_type": "short-term professional",
-            "error": "Gemini Client not initialized."
+            "issue_type": "general_support",
+            "urgency": "soon",
+            "severity_score": 2,
+            "needs_immediate_resources": False,
+            "confidence": 0.0,
+            "reasoning": "System unavailable - default routing applied.",
+            "personalized_note": "We're here to help. Based on your responses, we recommend connecting with a mental health professional who can provide personalized support."
         }
     
     intake_json = json.dumps(input.model_dump(), ensure_ascii=False)
@@ -103,17 +116,31 @@ def classify_user_text(input: UserAssessmentInput) -> Dict:
         4 = safety concern OR cannot function
 
         --------------------------------
+        PERSONALIZED NOTE GUIDELINES:
+        Create a compassionate, warm message (2-4 sentences) that:
+        - Acknowledges what the person shared
+        - Validates their experience without diagnosing
+        - Provides reassurance about the support available
+        - Uses supportive, hopeful language
+        - Reflects the urgency level appropriately
+        
+        Example for crisis: "Thank you for reaching out during this difficult time. Your safety is our top priority, and we've identified immediate resources that can provide support right now."
+        
+        Example for routine: "We appreciate you taking this step. Based on what you've shared, connecting with support resources can help you navigate these challenges at a comfortable pace."
+
+        --------------------------------
         Return ONLY valid JSON. If you produce anything other than valid JSON, the response is invalid.
         OUTPUT FORMAT:
         
-        {
+        {{
         "issue_type": "",
         "urgency": "",
         "severity_score": 1-4,
-        "needs_immediate_resources": True/False,
-        "confidence": 0-1,
-        "reasoning": "brief non-clinical explanation"
-        }
+        "needs_immediate_resources": true/false,
+        "confidence": 0.0-1.0,
+        "reasoning": "brief non-clinical explanation",
+        "personalized_note": "2-4 sentence compassionate message acknowledging their situation"
+        }}
 
         --------------------------------
         INTAKE DATA:
@@ -123,7 +150,7 @@ def classify_user_text(input: UserAssessmentInput) -> Dict:
     try:
         # New SDK syntax: client.models.generate_content
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # Or your preferred version
+            model='gemini-2.5-flash',  # Stable model version
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json' # Forces JSON output
@@ -131,14 +158,30 @@ def classify_user_text(input: UserAssessmentInput) -> Dict:
         )
         
         # In the new SDK, response.text is directly accessible
-        return json.loads(response.text)
+        result = json.loads(response.text)
+        print(f"✅ Gemini API call successful")
+        return result
 
-    except Exception as e:
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        print(f"Raw response: {response.text if 'response' in locals() else 'No response'}")
         return {
             "issue_type": "unknown",
             "urgency": "soon",
             "severity_score": 2,
             "needs_immediate_resources": False,
-            "confidence": 0,
-            "reasoning": "Model error - default moderate routing applied."
+            "confidence": 0.0,
+            "reasoning": "JSON parsing error - default moderate routing applied.",
+            "personalized_note": "Thank you for sharing with us. We're experiencing a technical issue, but we've identified resources that can provide the support you need. Please reach out to a mental health professional for personalized guidance."
+        }
+    except Exception as e:
+        print(f"❌ Gemini API error: {type(e).__name__}: {e}")
+        return {
+            "issue_type": "unknown",
+            "urgency": "soon",
+            "severity_score": 2,
+            "needs_immediate_resources": False,
+            "confidence": 0.0,
+            "reasoning": "Model error - default moderate routing applied.",
+            "personalized_note": "Thank you for sharing with us. We're experiencing a technical issue, but we've identified resources that can provide the support you need. Please reach out to a mental health professional for personalized guidance."
         }

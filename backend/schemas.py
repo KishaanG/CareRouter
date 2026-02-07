@@ -22,15 +22,12 @@ class AssessmentScores(BaseModel):
     needs_immediate_resources: bool
     confidence: float
     reasoning: str
+    personalized_note: str
 
 # --- OUTPUT: The Final Plan (The Recommendation) ---
 class FinalPlan(BaseModel):
     scores: AssessmentScores
-    recommended_pathway: List[dict] # [{"name": "Crisis Line", "type": "Phone", "desc": "..."}]
-    personalized_note: str
-    
-    latitude: Optional[float] = 0.0
-    longitude: Optional[float] = 0.0
+    recommended_pathway: List[dict] # [{"name": "Crisis Line", "type": "Phone", "desc": "...", "data": "..."}, ]
 
 # --- SAVE: The "Create Account" Payload ---
 class SaveProfileRequest(BaseModel):
