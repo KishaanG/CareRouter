@@ -36,6 +36,8 @@ export interface Pathway {
 export interface Assessment {
   answers: Record<number, any>
   completedAt: string
+  questionsAnswered: number
+  totalQuestions: number
 }
 
 export interface Booking {
@@ -46,4 +48,14 @@ export interface Booking {
   time: string
   status: 'pending' | 'confirmed' | 'cancelled'
   notes?: string
+}
+
+// Chat-specific types
+export interface ChatMessage {
+  id: string
+  type: 'bot' | 'user' | 'options'
+  message?: string
+  timestamp: Date
+  options?: QuestionOption[]
+  questionIndex?: number
 }
