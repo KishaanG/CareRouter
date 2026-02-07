@@ -23,80 +23,90 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Specialized Central Resources
 ISSUE_SPECIFIC_RESOURCES = {
-    "mental_health": {
-        "name": "Wellness Together Canada",
-        "description": "Free mental health and substance use support portal.",
-        "type": "Website",
-        "data": "https://wellnesstogether.ca/"
-    },
-    "addiction": {
-        "name": "ConnexOntario",
-        "description": "24/7 support for addiction, gambling, and mental health.",
-        "type": "Helpline",
-        "data": "https://www.connexontario.ca/"
-    },
-    "financial_stress": {
-        "name": "Credit Counselling Canada",
-        "description": "Non-profit debt help and financial education.",
-        "type": "Service",
-        "data": "https://creditcounsellingcanada.ca/"
-    },
-    "relationship_family": {
-        "name": "Family Service Canada",
-        "description": "Community-based family and relationship counseling.",
-        "type": "Network",
-        "data": "https://familyservicecanada.org/"
-    },
-    "grief_loss": {
-        "name": "MyGrief.ca",
-        "description": "Online support for those dealing with loss and grief.",
-        "type": "Website",
-        "data": "https://mygrief.ca/"
-    }
+    "mental_health": [
+        {"name": "ConnexOntario", "type": "Helpline", "data": "1-866-531-2600", "description": "24/7 free and confidential health services information for mental health and addiction."},
+        {"name": "Wellness Together", "type": "Helpline", "data": "1-866-585-0445", "description": "24/7 mental health and substance use support. Text WELLNESS to 741741."}
+    ],
+    "alcohol": [
+        {"name": "ConnexOntario (Alcohol)", "type": "Helpline", "data": "1-866-531-2600", "description": "Support for alcohol recovery and addiction services."},
+        {"name": "NORS Overdose Response", "type": "Helpline", "data": "1-888-688-6677", "description": "Confidential, nonjudgmental overdose prevention support."}
+    ],
+    "drug_use": [
+        {"name": "ConnexOntario (Drugs)", "type": "Helpline", "data": "1-866-531-2600", "description": "Support for drug addiction and treatment services."},
+        {"name": "National Overdose Response Service", "type": "Helpline", "data": "1-888-688-6677", "description": "Immediate, nonjudgmental support for people using substances alone."}
+    ],
+    "gambling": [
+        {"name": "ConnexOntario (Gambling)", "type": "Helpline", "data": "1-866-531-2600", "description": "Specialized support for problem gambling, available 24/7."}
+    ],
+    "behavioral_addiction": [
+        {"name": "ConnexOntario", "type": "Helpline", "data": "1-866-531-2600", "description": "General addiction support for behavioral concerns and mental health."}
+    ],
+    "crisis_safety": [
+        {"name": "Talk Suicide Canada", "type": "Helpline", "data": "1-833-456-4566", "description": "Toll-free support for concerns about suicide. Text 45645 (4 PM-Midnight ET)."},
+        {"name": "Distress Centres Ontario", "type": "Website", "data": "dcontario.org", "description": "Find a listening ear for lonely, depressed, or suicidal individuals."}
+    ],
+    "relationship_family": [
+        {"name": "Assaulted Women's Helpline", "type": "Helpline", "data": "1-866-863-0511", "description": "24-hour crisis line for women experiencing abuse. Mobile: #SAFE (#7233)."}
+    ],
+    "financial_stress": [
+        {"name": "Ontario Caregiver Helpline", "type": "Helpline", "data": "1-833-416-2273", "description": "One-stop resource for caregivers needing financial and navigation support."}
+    ]
 }
 
 def generate_resource_list(assessment: AssessmentScores):
-    """Generates the mandatory national/static safety net based on severity/urgency."""
+    """Generates the mandatory national/static safety net."""
     final_resources = []
     
-    # 1. Immediate Safety (Highest Priority)
-    if assessment.needs_immediate_resources or assessment.urgency == "immediate_crisis":
+    # 1. IMMEDIATE CRISIS (Severity 4 or urgency='immediate_crisis')
+    if assessment.severity_score >= 4 or assessment.urgency == "immediate_crisis":
         final_resources.append({
             "name": "Emergency Services (9-1-1)",
-            "type": "Immediate Support",
-            "description": "Immediate emergency assistance for life-threatening situations.",
+            "type": "Helpline",
+            "description": "Call 9-1-1 if you are in immediate danger.",
             "data": "9-1-1"
         })
         final_resources.append({
             "name": "9-8-8 Suicide & Crisis Lifeline",
-            "type": "24/7 Phone/Text",
-            "description": "Support for people in Canada concerned about suicide or emotional distress.",
+            "type": "Helpline",
+            "description": "Safe, confidential support for anyone in Canada.",
             "data": "9-8-8"
         })
 
-    # 2. Issue Specific Support
-    issue_data = ISSUE_SPECIFIC_RESOURCES.get(assessment.issue_type)
-    if issue_data:
-        final_resources.append(issue_data)
+    # 2. TARGETED ISSUE SUPPORT
+    # Append all resources associated with the detected issue type
+    targeted = ISSUE_SPECIFIC_RESOURCES.get(assessment.issue_type, [])
+    for res in targeted:
+        final_resources.append(res)
 
-    # 3. Severity-Based Additions
-    if assessment.severity_score <= 2 and assessment.urgency == "routine":
+    # 3. AGE/DEMOGRAPHIC SPECIFIC (Based on issue_type or keywords)
+    # Post-secondary students
+    if assessment.issue_type in ["mental_health", "loneliness", "general_support"]:
+        final_resources.append({
+            "name": "Good2Talk",
+            "type": "Helpline",
+            "description": "Ontario's 24/7 helpline for post-secondary students.",
+            "data": "1-866-925-5454"
+        })
+
+    # Youth
+    if assessment.severity_score >= 2:
+        final_resources.append({
+            "name": "Kids Help Phone",
+            "type": "Helpline",
+            "description": "Professional counseling and info for youth. Text CONNECT to 686868.",
+            "data": "1-800-668-6868"
+        })
+
+    # 4. LOW SEVERITY PREVENTATIVE (Severity 1 or 2)
+    if assessment.severity_score <= 2:
         final_resources.append({
             "name": "BounceBack Ontario",
             "type": "Website",
-            "description": "A free, guided self-help program for managing mild-to-moderate anxiety or depression.",
+            "description": "Guided CBT-based skill-building for managing low mood and stress (Ages 15+).",
             "data": "https://bouncebackontario.ca/"
         })
-    elif assessment.urgency in ["urgent", "soon"]:
-        final_resources.append({
-            "name": "Talk Suicide Helpline",
-            "type": "Phone",
-            "description": "Toll-free 24/7 support available across Canada.",
-            "data": "1-833-456-4566"
-        })
-    
+
     return final_resources
 
 def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
@@ -158,7 +168,7 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
             place = raw_places[i]
             final_output.append({
                 "name": place.get("name"),
-                "type": "Local Facility",
+                "type": "Facility",
                 "description": f"Selected as a suitable {assessment.issue_type.replace('_', ' ')} resource based on user needs.",
                 "data": place.get("vicinity")
             })
@@ -219,7 +229,7 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
                 place = raw_places[idx]
                 final_output.append({
                     "name": place.get("name"),
-                    "type": "Local Facility",
+                    "type": "Facility",
                     "description": item.get("rationale"),
                     "data": place.get("vicinity")
                 })
