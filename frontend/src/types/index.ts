@@ -25,6 +25,41 @@ export interface Resource {
   whyRecommended?: string
 }
 
+// Backend response format
+export interface AssessmentResponse {
+  scores: {
+    severity_tier: string      // "Low", "Moderate", "High"
+    urgency: string            // "Routine", "Soon", "Immediate"
+    support_type: string       // "Peer", "Professional", "Crisis"
+    accessibility: string[]    // ["Low Cost", "Online", "English"]
+    reasoning: string          // Summary of why it scored this way
+  }
+  recommended_pathway: Array<{
+    name: string
+    type: string
+    desc: string
+    [key: string]: any
+  }>
+  personalized_note: string
+  Locations: Array<{
+    [key: string]: any
+  }>
+}
+
+// Frontend request format (what we send to backend)
+export interface AssessmentSubmission {
+  primary_concern: string
+  answer_distress: string
+  answer_functioning: string
+  answer_urgency: string
+  answer_safety: string
+  answer_constraints: string
+  location: {
+    latitude: number
+    longitude: number
+  } | null
+}
+
 export interface Pathway {
   severity: 'low' | 'moderate' | 'high'
   urgency: 'routine' | 'soon' | 'immediate'
