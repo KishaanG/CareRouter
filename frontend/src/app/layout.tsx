@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'CareRouter - Find Mental Health Support',
   description: 'Find the right mental health support in your area',
+  manifest: '/manifest.json',
+  themeColor: '#0284c7',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 }
 
 export default function RootLayout({

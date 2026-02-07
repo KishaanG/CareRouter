@@ -22,7 +22,8 @@ export default function AssessmentPage() {
   const [isTyping, setIsTyping] = useState(false)
   const [waitingForAnswer, setWaitingForAnswer] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const hasStartedRef = useRef(false)  // Use ref instead of state
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new messages arrive
@@ -30,11 +31,31 @@ export default function AssessmentPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isTyping])
 
-  // Start conversation when component mounts
+  // Request location access when component mounts
   useEffect(() => {
     // Prevent double initialization (React Strict Mode)
-    if (hasStarted) return
-    setHasStarted(true)
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
+
+    // Request location access
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          })
+          console.log('Location accessed:', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          })
+        },
+        (error) => {
+          console.warn('Location access denied or unavailable:', error.message)
+          // Continue even if location denied
+        }
+      )
+    }
 
     const welcomeMessage: ChatEntry = {
       id: 'welcome',
@@ -146,12 +167,18 @@ export default function AssessmentPage() {
     setIsComplete(true)
     setIsTyping(true)
     
-    // Format responses as JSON for backend
+    // Format responses to match backend's expected format
     const assessmentData = {
-      responses: finalResponses,  // Use the passed responses to ensure all 5 are included
-      completedAt: new Date().toISOString(),
-      questionsAnswered: Object.keys(finalResponses).length,
-      totalQuestions: questions.length
+      primary_concern: finalResponses[0] || "",
+      answer_distress: finalResponses[1] || "",
+      answer_functioning: finalResponses[2] || "",
+      answer_urgency: finalResponses[3] || "",
+      answer_safety: finalResponses[4] || "",
+      answer_constraints: finalResponses[5] || "",
+      location: userLocation ? {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude
+      } : null
     }
 
     console.log('=== Assessment Data (JSON for Backend) ===')
@@ -177,7 +204,16 @@ export default function AssessmentPage() {
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(assessmentData)
       // })
-      // const pathway = await result.json()
+      // const pathwayData = await result.json()
+      // Backend returns:
+      // {
+      //   scores: { severity_tier, urgency, support_type, accessibility, reasoning },
+      //   recommended_pathway: [...],
+      //   personalized_note: "...",
+      //   Locations: [...]
+      // }
+      // Store in localStorage or state management
+      // localStorage.setItem('pathway', JSON.stringify(pathwayData))
       
       setTimeout(() => {
         router.push('/results')
