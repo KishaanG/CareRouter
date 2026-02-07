@@ -1,211 +1,185 @@
-import os
 import requests
 import json
+import os
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
 from schemas import UserAssessmentInput, AssessmentScores
 
-# Load environment variables
+# Load variables from .env
 load_dotenv()
 
-# Setup your keys
+# Get keys from environment
 MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Initialize Gemini client
-client = None
-if GEMINI_API_KEY:
-    try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-    except Exception as e:
-        print(f"❌ Gemini client initialization error: {e}")
-else:
-    print("⚠️  GEMINI_API_KEY not set")
+# Check if keys are missing to avoid confusing errors later
+if not MAPS_API_KEY or not GEMINI_API_KEY:
+    print("⚠️ WARNING: API Keys are missing! Check your .env file.")
 
-def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
-    """Fetches raw data from Google Maps."""
-    if not MAPS_API_KEY:
-        print("⚠️  GOOGLE_MAPS_API_KEY not set, returning empty results")
-        return []
-    
-    # Map your support_types to Google Maps 'types' or keywords
-    type_map = {
-        "mental_health": "psychotherapist | mental health clinic | counseling center",
-        "behavioral_addiction": "behavioral health center | addiction treatment center",
-        
-        "gambling": "gambling addiction support | Gamblers Anonymous",
-        "alcohol": "alcohol recovery | Alcoholics Anonymous | addiction treatment",
-        "drug_use": "drug addiction treatment | detox center | rehab center",
-        
-        "crisis_safety": "hospital emergency room | crisis intervention center | 24 hour clinic",
-        
-        "general_support": "community center | social services | non-profit organization",
-        "financial_stress": "credit counseling | debt relief service | food bank | legal aid",
-        "relationship_family": "marriage counselor | family counselor | relationship therapy",
-        "grief_loss": "grief counseling | bereavement support | hospice care",
-        
-        "loneliness": "volunteer center | social club | community center",
-        
-        "unknown": "community health center"
-    }
 
-    ISSUE_SPECIFIC_RESOURCES = {
-        "mental_health": {
-            "name": "Wellness Together Canada",
-            "desc": "Free mental health and substance use support portal.",
-            "type": "Website",
-            "data": "https://wellnesstogether.ca/"
-        },
-        "addiction": {
-            "name": "ConnexOntario",
-            "desc": "24/7 support for addiction, gambling, and mental health.",
-            "data": "https://www.connexontario.ca/"
-        },
-        "financial_stress": {
-            "name": "Credit Counselling Canada",
-            "desc": "Non-profit debt help and financial education.",
-            "data": "https://creditcounsellingcanada.ca/"
-        },
-        "relationship_family": {
-            "name": "Family Service Canada",
-            "desc": "Community-based family and relationship counseling.",
-            "data": "https://familyservicecanada.org/"
-        },
-        "grief_loss": {
-            "name": "MyGrief.ca",
-            "desc": "Online support for those dealing with loss and grief.",
-            "data": "https://mygrief.ca/"
-        }
+# --- Configuration ---
+MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "YOUR_GOOGLE_MAPS_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Specialized Central Resources
+ISSUE_SPECIFIC_RESOURCES = {
+    "mental_health": {
+        "name": "Wellness Together Canada",
+        "description": "Free mental health and substance use support portal.",
+        "type": "Website",
+        "data": "https://wellnesstogether.ca/"
+    },
+    "addiction": {
+        "name": "ConnexOntario",
+        "description": "24/7 support for addiction, gambling, and mental health.",
+        "type": "Helpline",
+        "data": "https://www.connexontario.ca/"
+    },
+    "financial_stress": {
+        "name": "Credit Counselling Canada",
+        "description": "Non-profit debt help and financial education.",
+        "type": "Service",
+        "data": "https://creditcounsellingcanada.ca/"
+    },
+    "relationship_family": {
+        "name": "Family Service Canada",
+        "description": "Community-based family and relationship counseling.",
+        "type": "Network",
+        "data": "https://familyservicecanada.org/"
+    },
+    "grief_loss": {
+        "name": "MyGrief.ca",
+        "description": "Online support for those dealing with loss and grief.",
+        "type": "Website",
+        "data": "https://mygrief.ca/"
     }
-    
-    keyword = type_map.get(assessment.issue_type, "mental health")
-    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={responses.latitude},{responses.longitude}&radius=5000&keyword={keyword}&key={MAPS_API_KEY}"
-    
-    response = requests.get(url)
-    return response.json().get('results', [])[:10]
-'''
+}
+
 def generate_resource_list(assessment: AssessmentScores):
+    """Generates the mandatory national/static safety net based on severity/urgency."""
     final_resources = []
     
-    # --- PHASE 1: IMMEDIATE SAFETY (MANDATORY) ---
+    # 1. Immediate Safety (Highest Priority)
     if assessment.needs_immediate_resources or assessment.urgency == "immediate_crisis":
         final_resources.append({
             "name": "Emergency Services (9-1-1)",
             "type": "Immediate Support",
-            "priority": "Critical",
+            "description": "Immediate emergency assistance for life-threatening situations.",
             "data": "9-1-1"
         })
         final_resources.append({
             "name": "9-8-8 Suicide & Crisis Lifeline",
             "type": "24/7 Phone/Text",
-            "priority": "Critical",
+            "description": "Support for people in Canada concerned about suicide or emotional distress.",
             "data": "9-8-8"
         })
 
-    # --- PHASE 2: SPECIALIZED ISSUE SUPPORT ---
-    # We look up the specific issue type provided by the model
+    # 2. Issue Specific Support
     issue_data = ISSUE_SPECIFIC_RESOURCES.get(assessment.issue_type)
     if issue_data:
-        final_resources.append({
-            "name": issue_data["name"],
-            "type": "Specialized Support",
-            "Description": issue_data["desc"],
-            "data": issue_data["url"]
-        })
+        final_resources.append(issue_data)
 
-    # --- PHASE 3: SEVERITY-BASED ADDITIONS ---
-    # Low Severity / Preventive
-    if assessment.severity_score <= 2:
+    # 3. Severity-Based Additions
+    if assessment.severity_score <= 2 and assessment.urgency == "routine":
         final_resources.append({
             "name": "BounceBack Ontario",
-            "type": "Guided Self-Help",
-            "Description": "CBT-based skill-building for managing stress and low mood.",
+            "type": "Website",
+            "description": "A free, guided self-help program for managing mild-to-moderate anxiety or depression.",
             "data": "https://bouncebackontario.ca/"
         })
-    
-    # High Urgency but not Crisis
     elif assessment.urgency in ["urgent", "soon"]:
         final_resources.append({
             "name": "Talk Suicide Helpline",
             "type": "Phone",
-            "Description": "National support for those in distress or concerned about someone else.",
+            "description": "Toll-free 24/7 support available across Canada.",
             "data": "1-833-456-4566"
         })
-
+    
     return final_resources
 
-        if (assessment.severity_score == 0):
-        prompt += " The user is in a low severity state and can benefit from general support resources that promote wellbeing."
-        list.append({
-            "name": "Wellness Together Canada",
-            "type": "Online",
-            "Description": "Offers mental health and substance use support, including self-assessment tools, resources, and connections to trained volunteers and professionals.",
-            "data": "https://wellnesstogether.ca/en-ca/"})
+def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
+    """Fetches raw data from Google Maps based on detected issue type."""
+    if MAPS_API_KEY == "YOUR_GOOGLE_MAPS_API_KEY":
+        # Return dummy data for testing when API key is not set
+        return [
+            {
+                "name": "Test Mental Health Clinic",
+                "rating": 4.5,
+                "vicinity": "123 Test Street, Kingston, ON"
+            },
+            {
+                "name": "Sample Counseling Center",
+                "rating": 4.0,
+                "vicinity": "456 Sample Ave, Kingston, ON"
+            },
+            {
+                "name": "Mock Therapy Services",
+                "rating": 4.2,
+                "vicinity": "789 Mock Blvd, Kingston, ON"
+            }
+        ]
 
-    if (assessment.urgency == "routine"):
-        prompt += " The user is in a routine state and can benefit from resources that support ongoing wellbeing."
-        list.append({
-            "name": "BounceBack",
-            "type": "Website",
-            "Description": "A free, guided self-help program that's effective in helping people aged 15 and up who are experiencing mild-to-moderate anxiety or depression, or may be feeling low, stressed, worried, irritable or angry.",
-            "data": "https://bouncebackontario.ca/"})
+    type_map = {
+        "mental_health": "psychotherapist | mental health clinic | counseling center",
+        "behavioral_addiction": "behavioral health center",
+        "gambling": "gambling addiction support | Gamblers Anonymous",
+        "alcohol": "alcohol recovery | Alcoholics Anonymous",
+        "drug_use": "addiction treatment | rehab center",
+        "crisis_safety": "hospital emergency room | crisis center",
+        "general_support": "community center | social services",
+        "financial_stress": "credit counseling | food bank",
+        "relationship_family": "marriage counselor | family therapy",
+        "grief_loss": "grief counseling",
+        "loneliness": "volunteer center | social club",
+        "unknown": "community health center"
+    }
 
-    if (assessment.urgency == "urgent" or assessment.urgency == "soon" or assessment.urgency == "immediate_crisis"):
-        prompt += " The user needs support soon, so prioritize resources that are responsive and have good ratings."
-        list.append({
-            "name": "Talk Suicide Helpline",
-            "type": "Phone",
-            "Description": "Offers toll-free support to people in Canada who have concerns about suicide. Phone line available 24/7 or text 45645 between 4 p.m. and midnight ET.",
-            "data": "1-833-456-4566"})
-        list.append({
-            "name": "Kids Help Phone",
-            "type": "Phone",
-            "Description": "Youth mental health support available 24/7.",
-            "data": "1-800-668-6868"})
-        if (assessment.urgency == "immediate_crisis" or assessment.issue_type == "crisis_safety"):
-            prompt += " The user is in immediate crisis and needs urgent support."
-            list.append({
-                "name": "Emergency Services",
-                "type": "Phone",
-                "Description": "Immideate emergency assistance.",
-                "data": "9-8-8"})
-            list.append({
-                "name": "Emergency Services",
-                "type": "Phone",
-                "Description": "Immideate emergency assistance.",
-                "data": "9-1-1"})
-        else:
-            prompt += " The user is not in immediate crisis but still needs support soon."
+    keyword = type_map.get(assessment.issue_type, "mental health support")
+    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={responses.latitude},{responses.longitude}&radius=5000&keyword={keyword}&key={MAPS_API_KEY}"
 
-'''
+    try:
+        response = requests.get(url)
+        return response.json().get('results', [])[:10]
+    except Exception as e:
+        print(f"Maps API Error: {e}")
+        return []
+
 def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentScores, raw_places: list):
-    
-    if not client:
-        print("⚠️  Gemini client not available, returning raw places")
-        # Fallback: return first 3 places formatted
-        return [{
-            "name": p.get("name"),
-            "type": "Local Facility",
-            "description": f"Rated {p.get('rating', 'N/A')} stars",
-            "data": p.get("vicinity")
-        } for p in raw_places[:3]]
-    
-    # Simplify the data so we don't waste tokens
+    """Uses Gemini to select the 3 most appropriate local results based on user story."""
+    if not raw_places:
+        return []
+
+    # If Gemini API key is not set, return dummy selections for testing
+    if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY":
+        final_output = []
+        for i in range(min(3, len(raw_places))):
+            place = raw_places[i]
+            final_output.append({
+                "name": place.get("name"),
+                "type": "Local Facility",
+                "description": f"Selected as a suitable {assessment.issue_type.replace('_', ' ')} resource based on user needs.",
+                "data": place.get("vicinity")
+            })
+        return final_output
+
+    # Simplify data for the LLM
     places_summary = []
-    for p in raw_places:
+    for i, p in enumerate(raw_places):
         places_summary.append({
+            "index": i,
             "name": p.get("name"),
             "rating": p.get("rating"),
-            "address": p.get("vicinity"),
-            "types": p.get("types")
+            "address": p.get("vicinity")
         })
 
+    # Prepare context
     data = responses.model_dump()
     data.pop("answer_constraints", None)
     user_story = json.dumps(data, ensure_ascii=False)
-
     user_assessment = json.dumps(assessment.model_dump(), ensure_ascii=False)
+
     prompt = f"""
     ### ROLE
     You are a mental health clinical coordinator.
@@ -225,42 +199,31 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
     4. For each selection, provide a brief "rationale."
 
     ### OUTPUT FORMAT
-    Return ONLY a JSON array of objects. Example:
-    [
-    {"index": 0, "rationale": "Selected because it offers free youth counseling which matches the user's age and financial constraint."},
-    {"index": 2, "rationale": "..."},
-    {"index": 3, "rationale": "..."}
-    ]
+    Return ONLY a JSON array of objects.
+    Example: [{{"index": 0, "rationale": "Description here"}}]
     """
 
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type='application/json'
-            )
+            config={'response_mime_type': 'application/json'}
         )
+
         selections = json.loads(response.text)
+        final_output = []
+
+        for item in selections:
+            idx = item.get("index")
+            if 0 <= idx < len(raw_places):
+                place = raw_places[idx]
+                final_output.append({
+                    "name": place.get("name"),
+                    "type": "Local Facility",
+                    "description": item.get("rationale"),
+                    "data": place.get("vicinity")
+                })
+        return final_output
     except Exception as e:
-        print(f"❌ Error calling Gemini API: {e}")
-        # Fallback: return first 3 places
-        selections = [{"index": i, "rationale": "Auto-selected"} for i in range(min(3, len(raw_places)))]
-    
-    final_output = []
-
-    for item in selections:
-        idx = item.get("index")
-        
-        if 0 <= idx < len(raw_places):
-            place = raw_places[idx]
-            
-            formatted_resource = {
-                "name": place.get("name"),
-                "type": "Local Facility",
-                "description": item.get("rationale"),
-                "data": place.get("vicinity")
-            }
-            final_output.append(formatted_resource)
-
-    return final_output
+        print(f"Gemini Selection Error: {e}")
+        return []
