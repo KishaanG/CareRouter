@@ -1,14 +1,34 @@
+import os
 import requests
 import json
+from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 from schemas import UserAssessmentInput, AssessmentScores
 
+# Load environment variables
+load_dotenv()
+
 # Setup your keys
-MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"
-client = genai.Client(api_key="YOUR_GEMINI_API_KEY")
+MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Initialize Gemini client
+client = None
+if GEMINI_API_KEY:
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        print(f"❌ Gemini client initialization error: {e}")
+else:
+    print("⚠️  GEMINI_API_KEY not set")
 
 def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
     """Fetches raw data from Google Maps."""
+    if not MAPS_API_KEY:
+        print("⚠️  GOOGLE_MAPS_API_KEY not set, returning empty results")
+        return []
+    
     # Map your support_types to Google Maps 'types' or keywords
     type_map = {
         "mental_health": "psychotherapist | mental health clinic | counseling center",
@@ -161,6 +181,16 @@ def generate_resource_list(assessment: AssessmentScores):
 '''
 def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentScores, raw_places: list):
     
+    if not client:
+        print("⚠️  Gemini client not available, returning raw places")
+        # Fallback: return first 3 places formatted
+        return [{
+            "name": p.get("name"),
+            "type": "Local Facility",
+            "description": f"Rated {p.get('rating', 'N/A')} stars",
+            "data": p.get("vicinity")
+        } for p in raw_places[:3]]
+    
     # Simplify the data so we don't waste tokens
     places_summary = []
     for p in raw_places:
@@ -203,12 +233,20 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
     ]
     """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config={'response_mime_type': 'application/json'}
-    )
-    selections = json.loads(response.text)
+    try:
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json'
+            )
+        )
+        selections = json.loads(response.text)
+    except Exception as e:
+        print(f"❌ Error calling Gemini API: {e}")
+        # Fallback: return first 3 places
+        selections = [{"index": i, "rationale": "Auto-selected"} for i in range(min(3, len(raw_places)))]
+    
     final_output = []
 
     for item in selections:
