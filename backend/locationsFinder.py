@@ -8,13 +8,16 @@ from schemas import UserAssessmentInput, AssessmentScores
 # Load variables from .env
 load_dotenv()
 
-# Get keys from environment
+# Get keys from environment (backend .env: GOOGLE_MAPS_API_KEY for Places API)
 MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Check if keys are missing to avoid confusing errors later
 if not MAPS_API_KEY or not GEMINI_API_KEY:
     print("⚠️ WARNING: API Keys are missing! Check your .env file.")
+
+# For Nearby Search to return places: enable "Places API" (not just Maps JavaScript API)
+# in Google Cloud Console → APIs & Services → Enable APIs.
 
 
 # --- Configuration ---
@@ -54,19 +57,20 @@ ISSUE_SPECIFIC_RESOURCES = {
     ]
 }
 
+# Single keywords for Places API (Nearby Search does not support multiple terms in one request)
 TYPE_MAP = {
-        "mental_health": "psychotherapist | mental health clinic | counseling center",
-        "behavioral_addiction": "behavioral health center",
-        "gambling": "gambling addiction support | Gamblers Anonymous",
-        "alcohol": "alcohol recovery | Alcoholics Anonymous",
-        "drug_use": "addiction treatment | rehab center",
-        "crisis_safety": "hospital emergency room | crisis center",
-        "general_support": "community center | social services",
-        "financial_stress": "credit counseling | food bank",
-        "relationship_family": "marriage counselor | family therapy",
+        "mental_health": "mental health clinic",
+        "behavioral_addiction": "behavioral health",
+        "gambling": "gambling support",
+        "alcohol": "alcohol support",
+        "drug_use": "addiction treatment",
+        "crisis_safety": "crisis center",
+        "general_support": "community center",
+        "financial_stress": "counseling",
+        "relationship_family": "family therapy",
         "grief_loss": "grief counseling",
-        "loneliness": "volunteer center | social club",
-        "unknown": "community health center"
+        "loneliness": "community center",
+        "unknown": "mental health"
     }
 
 def generate_resource_list(assessment: AssessmentScores):
@@ -124,18 +128,38 @@ def generate_resource_list(assessment: AssessmentScores):
 
     return final_resources
 
-def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
-    """Fetches raw data from Google Maps based on detected issue type."""
-
-    keyword = TYPE_MAP.get(assessment.issue_type, "mental health support")
-    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={responses.latitude},{responses.longitude}&radius=5000&keyword={keyword}&key={MAPS_API_KEY}"
-
+def _places_nearby_search(lat: float, lng: float, keyword: str) -> list:
+    """Single Places API Nearby Search request. Returns up to 10 results."""
+    url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={lat},{lng}&radius=5000&keyword={keyword}&key={MAPS_API_KEY}"
     try:
         response = requests.get(url)
-        return response.json().get('results', [])[:10]
+        data = response.json()
+        results = data.get("results", [])[:10]
+        status = data.get("status", "")
+        if not results:
+            print(f"🗺️ Places API: status={status!r} keyword={keyword!r}")
+            if status not in ("OK", "ZERO_RESULTS"):
+                print(f"   error_message={data.get('error_message', 'none')}")
+        return results
     except Exception as e:
         print(f"Maps API Error: {e}")
         return []
+
+
+def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
+    """Fetches raw data from Google Maps Places API (Nearby Search) based on detected issue type."""
+
+    lat, lng = responses.latitude, responses.longitude
+    keyword = TYPE_MAP.get(assessment.issue_type, "mental health")
+    results = _places_nearby_search(lat, lng, keyword)
+    # Fallback: if no results with specific keyword, try broader terms
+    if not results and assessment.issue_type in (
+        "mental_health", "behavioral_addiction", "grief_loss", "relationship_family", "unknown"
+    ):
+        results = _places_nearby_search(lat, lng, "counseling")
+    if not results:
+        results = _places_nearby_search(lat, lng, "mental health")
+    return results
 
 def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentScores, raw_places: list):
     """Uses Gemini to select the 3 most appropriate local results based on user story."""
@@ -195,12 +219,18 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
             idx = item.get("index")
             if 0 <= idx < len(raw_places):
                 place = raw_places[idx]
-                final_output.append({
+                geo = place.get("geometry", {})
+                loc = geo.get("location", {})
+                out = {
                     "name": place.get("name"),
                     "type": "Facility",
                     "description": item.get("rationale"),
                     "data": place.get("vicinity")
-                })
+                }
+                if loc.get("lat") is not None and loc.get("lng") is not None:
+                    out["latitude"] = loc["lat"]
+                    out["longitude"] = loc["lng"]
+                final_output.append(out)
         return final_output
     except Exception as e:
         print(f"Gemini Selection Error: {e}")

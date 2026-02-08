@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from exercisesToolbox import generate_exercise_toolbox
 from sqlmodel import Session, select, create_engine, SQLModel
 from models import User, Assessment
 from schemas import UserAssessmentInput, FinalPlan, AssessmentScores, RegisterRequest
@@ -133,11 +134,15 @@ async def generate_plan(
     if len(pathway) > 5:
         print(f"  ... and {len(pathway) - 5} more")
     print(f"{'='*60}\n")
+
+    exercises = generate_exercise_toolbox(scores)
+    print(f"🧘 Generated {len(exercises)} exercises")
     
     # Return complete plan (personalized_note is in scores)
     plan = FinalPlan(
         scores=scores,
-        recommended_pathway=pathway
+        recommended_pathway=pathway,
+        exercises=exercises
     )
 
     with Session(engine) as session:

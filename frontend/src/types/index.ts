@@ -42,8 +42,15 @@ export interface AssessmentResponse {
     contact?: string
     availability?: string
     description: string
+    latitude?: number
+    longitude?: number
     [key: string]: any
   }>
+}
+
+// Stored in localStorage after assessment (pathway + user location for map)
+export interface StoredPathway extends AssessmentResponse {
+  userLocation?: { lat: number; lng: number } | null
 }
 
 // Frontend request format (what we send to backend)
