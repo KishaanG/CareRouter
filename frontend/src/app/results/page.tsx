@@ -253,8 +253,8 @@ export default function ResultsPage() {
   const showMap = !!apiKey
   const hasMapMarkers = resourcesWithCoords.length > 0 || (userLocation?.lat != null && userLocation?.lng != null)
 
-  const locationCount = facilityResources.length
-  const countLabel = locationCount > 0 ? `1 - ${locationCount} of ${locationCount} Locations` : '0 Locations'
+  const locationCount = facilityResources.filter((item) => !item.shouldSkip).length
+  const countLabel = locationCount > 0 ? `${locationCount} Locations Recommended` : '0 Locations'
 
   return (
     <>
