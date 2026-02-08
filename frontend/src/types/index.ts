@@ -51,6 +51,11 @@ export interface AssessmentResponse {
 // Stored in localStorage after assessment (pathway + user location for map)
 export interface StoredPathway extends AssessmentResponse {
   userLocation?: { lat: number; lng: number } | null
+  exercises?: Array<{
+    title: string
+    steps: string[]
+    benefit: string
+  }>
 }
 
 // Frontend request format (what we send to backend)

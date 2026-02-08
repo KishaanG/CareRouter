@@ -107,6 +107,7 @@ export default function ResultsPage() {
   const [bookingResourceIndex, setBookingResourceIndex] = useState<number | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string; label: string } | null>(null)
   const [bookingLoading, setBookingLoading] = useState(false)
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
   useEffect(() => {
@@ -275,6 +276,70 @@ export default function ResultsPage() {
                   </div>
                 )}
               </div>
+
+              {pathwayData.exercises && pathwayData.exercises.length > 0 && (
+                <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
+                  <h2 className="text-sm font-semibold text-text-primary mb-3">Exercise Toolbox</h2>
+                  <div className="relative">
+                    {/* Carousel Box */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-white min-h-[200px] flex flex-col justify-between">
+                      {/* Exercise Content */}
+                      <div>
+                        <h3 className="text-base font-semibold text-queens-navy mb-3">
+                          {pathwayData.exercises[currentExerciseIndex].title}
+                        </h3>
+                        
+                        <div className="mb-4">
+                          <p className="text-xs font-semibold text-text-secondary mb-2">Steps:</p>
+                          <ol className="space-y-2">
+                            {pathwayData.exercises[currentExerciseIndex].steps.map((step, stepIdx) => (
+                              <li key={stepIdx} className="text-sm text-text-primary leading-relaxed">
+                                <span className="font-semibold text-queens-navy">{stepIdx + 1}.</span> {step}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+
+                        <div className="bg-blue-100 rounded p-3 border border-blue-200">
+                          <p className="text-sm text-blue-900">
+                            <span className="font-semibold">Why it helps: </span>
+                            {pathwayData.exercises[currentExerciseIndex].benefit}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Navigation */}
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentExerciseIndex((i) => (i - 1 + pathwayData.exercises!.length) % pathwayData.exercises!.length)}
+                          className="flex items-center justify-center w-8 h-8 rounded-full border border-queens-navy text-queens-navy hover:bg-queens-navy/10 transition-colors"
+                          aria-label="Previous exercise"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+
+                        <span className="text-xs font-medium text-text-secondary">
+                          {currentExerciseIndex + 1} / {pathwayData.exercises.length}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setCurrentExerciseIndex((i) => (i + 1) % pathwayData.exercises!.length)}
+                          className="flex items-center justify-center w-8 h-8 rounded-full border border-queens-navy text-queens-navy hover:bg-queens-navy/10 transition-colors"
+                          aria-label="Next exercise"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">Click a location to see it on the map</p>
             {recommended_pathway.length === 0 ? (
