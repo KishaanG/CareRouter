@@ -33,6 +33,15 @@ export default function AssessmentPage() {
   const hasStartedRef = useRef(false)
   const locationRef = useRef<{ latitude: number; longitude: number } | null>(null)
   
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      console.log('ℹ️ No auth token found, redirecting to login')
+      router.push('/login')
+    }
+  }, [router])
+  
   // Auto-start the assessment when component mounts
   useEffect(() => {
     if (!hasStartedRef.current) {
@@ -163,15 +172,28 @@ export default function AssessmentPage() {
           currentLocation = locationRef.current
         }
 
-        // Get JWT token if user is logged in
+        // Get JWT token - if missing, redirect to login
         const token = localStorage.getItem('auth_token')
+        if (!token) {
+          console.log('⚠️ No authentication token found')
+          const errorMessage: ChatEntry = {
+            id: `error-${Date.now()}`,
+            type: 'bot',
+            message: "Your session has expired. Redirecting to login...",
+            timestamp: new Date(),
+          }
+          setChatHistory((prev) => [...prev, errorMessage])
+          setTimeout(() => {
+            router.push('/login')
+          }, 2000)
+          return
+        }
+
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         }
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`
-          console.log('🔐 Sending with authentication token')
-        }
+        console.log('🔐 Sending assessment with authentication token')
 
         const assessmentData: AssessmentSubmission = {
           primary_concern: finalResponses[0] || '',
@@ -197,6 +219,23 @@ export default function AssessmentPage() {
         if (!result.ok) {
           const errorText = await result.text()
           console.error('❌ Backend error:', result.status, errorText)
+          
+          if (result.status === 401) {
+            // Authentication error - clear token and redirect to login
+            localStorage.removeItem('auth_token')
+            const errorMessage: ChatEntry = {
+              id: `error-${Date.now()}`,
+              type: 'bot',
+              message: "Your authentication has expired. Please log in again.",
+              timestamp: new Date(),
+            }
+            setChatHistory((prev) => [...prev, errorMessage])
+            setTimeout(() => {
+              router.push('/login')
+            }, 2000)
+            return
+          }
+          
           throw new Error(`HTTP error! status: ${result.status}`)
         }
         
