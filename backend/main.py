@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select, create_engine, SQLModel
 from models import User, Assessment
 from schemas import UserAssessmentInput, SaveProfileRequest, FinalPlan, AssessmentScores
@@ -6,12 +7,26 @@ from classify import classify_user_text
 from locationsFinder import get_nearby_resources, pick_best_resources
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Database Setup (SQLite for demo)
 engine = create_engine("sqlite:///database.db")
 SQLModel.metadata.create_all(engine)
 
 app = FastAPI()
+
+# CORS Configuration - Allow frontend to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 @app.post("/api/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -51,11 +66,34 @@ async def generate_plan(data: UserAssessmentInput):
     scores_dict = classify_user_text(data)
     scores = AssessmentScores(**scores_dict)
     
-    # Step 2: Get nearby resources from Google Maps
-    raw_places = get_nearby_resources(data, scores)
+    # Step 2: Generate static resource list (helplines, crisis lines, etc.)
+    from locationsFinder import generate_resource_list
+    static_resources = generate_resource_list(scores)
     
-    # Step 3: Use LLM to pick the best resources based on user needs
-    pathway = pick_best_resources(data, scores, raw_places)
+    # Step 3: Get nearby resources from Google Maps (if location available)
+    raw_places = []
+    if data.latitude and data.longitude:
+        raw_places = get_nearby_resources(data, scores)
+    
+    # Step 4: Use LLM to pick the best local resources based on user needs
+    local_resources = pick_best_resources(data, scores, raw_places)
+    
+    # Step 5: Combine static + local resources
+    pathway = static_resources + local_resources
+    
+    # Debug: Print what we're sending
+    print(f"\n{'='*60}")
+    print(f"📤 SENDING TO FRONTEND:")
+    print(f"{'='*60}")
+    print(f"Issue Type: {scores.issue_type}")
+    print(f"Severity: {scores.severity_score}/4")
+    print(f"Urgency: {scores.urgency}")
+    print(f"Total Resources: {len(pathway)}")
+    for i, res in enumerate(pathway[:5], 1):
+        print(f"  {i}. {res.get('name')} ({res.get('type')})")
+    if len(pathway) > 5:
+        print(f"  ... and {len(pathway) - 5} more")
+    print(f"{'='*60}\n")
     
     # Return complete plan (personalized_note is in scores)
     return FinalPlan(

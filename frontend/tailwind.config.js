@@ -8,21 +8,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
-        success: '#10b981',
-        warning: '#f59e0b',
-        danger: '#ef4444',
+        // Claude-inspired gradient colors
+        'gradient-mint': '#C8E6E6',
+        'gradient-cream': '#F5E6D3',
+        'gradient-rose': '#E8D4CD',
+        // Queen's colors
+        'queens-navy': '#002452',
+        'queens-gold': '#FDBF57',
+        // Semantic colors
+        'text-primary': '#1a1a1a',
+        'text-secondary': '#6B7280',
+        'success': '#4A7C59',
+        'error': '#D64545',
+      },
+      fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'],
+        heading: ['Georgia', 'Times New Roman', 'serif'],
       },
     },
   },

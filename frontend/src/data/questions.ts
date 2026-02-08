@@ -1,42 +1,34 @@
-import { Question } from '@/types'
-
-// Questions in the exact order specified
-export const questions: Question[] = [
+// Questions in the exact order specified for the chatbot assessment
+export const questions = [
   {
     id: 0,
     text: "What's the main reason you're here today?",
-    subtitle: "Share whatever feels most important to you right now.",
-    type: 'single-choice',
+    subtitle: "Tell me in your own words what brings you to CareRouter.",
   },
   {
     id: 1,
     text: 'Over the past week, how intense has your emotional distress been?',
-    subtitle: "Describe how you've been feeling in your own words.",
-    type: 'single-choice',
+    subtitle: "Think about feelings like overwhelmed, anxious, or emotionally distressed.",
   },
   {
     id: 2,
     text: 'How much is this affecting your ability to function day-to-day?',
-    subtitle: 'Share how this is impacting your daily activities.',
-    type: 'single-choice',
+    subtitle: 'Consider work, school, self-care, and social life.',
   },
   {
     id: 3,
     text: 'How soon do you feel you need support?',
-    subtitle: 'Be honest about your timeline - this helps us prioritize resources.',
-    type: 'single-choice',
+    subtitle: "Is this something you need help with right away, or can it wait a bit?",
   },
   {
     id: 4,
     text: 'Which statement best describes your safety right now?',
-    subtitle: 'Your safety is our priority. Please be honest.',
-    type: 'single-choice',
-    note: 'If you are in immediate danger, please call 988 (Suicide & Crisis Lifeline) or 911 right now.',
+    subtitle: "It's important to be honest here. This helps us connect you to the right resources.",
+    note: 'If you are feeling unsafe or worried you might harm yourself, please reach out to a crisis line immediately (e.g., call 988).',
   },
   {
     id: 5,
     text: 'What could make it hard for you to get help?',
-    subtitle: 'Think about things like: cost, transportation, language, work schedule, childcare, insurance, not knowing where to start, etc.',
-    type: 'single-choice',
+    subtitle: 'Think about things like cost, transportation, language, work schedule, childcare, insurance, or past experiences.',
   },
 ]

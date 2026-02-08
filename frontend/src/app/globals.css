@@ -1,27 +1,297 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply text-text-primary;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  * {
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm;
+  /* Gradient Background - Light Pink */
+  .app-background {
+    background: linear-gradient(
+      180deg,
+      #FFE5E5 0%,
+      #FFF0F0 50%,
+      #FFE5E5 100%
+    );
+    min-height: 100vh;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: -1;
   }
   
-  .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-lg border border-gray-300 transition-colors duration-200;
+  /* Subtle grain texture overlay */
+  .app-background::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
   }
   
-  .card {
-    @apply bg-white rounded-xl shadow-md p-6;
+  /* Typography - Heading Font (serif fallback) */
+  .font-heading {
+    font-family: Georgia, "Times New Roman", serif;
+    letter-spacing: -0.02em;
   }
   
-  .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition;
+  /* Welcome Text with Typewriter Effect */
+  .welcome-text {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(32px, 8vw, 56px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
+  
+  .typewriter {
+    overflow: hidden;
+    border-right: 3px solid #002452;
+    white-space: nowrap;
+    animation: typewriter 2s steps(40) forwards, blink 0.75s step-end infinite;
+  }
+  
+  @keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  
+  @keyframes blink {
+    from, to { border-color: transparent; }
+    50% { border-color: #002452; }
+  }
+  
+  /* Action Cards - Claude Style */
+  .action-card {
+    background: white;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: none;
+  }
+  
+  .action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  }
+  
+  .action-card:active {
+    transform: translateY(0) scale(0.98);
+  }
+  
+  /* Message Bubbles */
+  .message-bubble {
+    background: white;
+    border-radius: 20px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Fade In Animation for Cards */
+  .fade-in-up {
+    animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    opacity: 0;
+  }
+  
+  .fade-in-up:nth-child(1) { animation-delay: 0s; }
+  .fade-in-up:nth-child(2) { animation-delay: 0.1s; }
+  .fade-in-up:nth-child(3) { animation-delay: 0.2s; }
+  .fade-in-up:nth-child(4) { animation-delay: 0.3s; }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Input Field */
+  .input-chat-modern {
+    width: 100%;
+    padding: 16px 20px;
+    border: none;
+    border-radius: 28px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    font-size: 16px;
+    outline: none;
+    transition: all 0.3s ease;
+  }
+  
+  .input-chat-modern:focus {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
+  }
+  
+  /* Circular Send Button */
+  .send-button-circular {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    min-height: 56px;
+    border-radius: 50%;
+    background: #002452;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 36, 82, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+  
+  .send-button-circular:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 36, 82, 0.4);
+  }
+  
+  .send-button-circular:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  
+  .send-button-circular:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  /* Typing Indicator - Wave Animation */
+  .typing-indicator {
+    display: flex;
+    gap: 6px;
+    padding: 16px 20px;
+  }
+  
+  .typing-dot-wave {
+    width: 10px;
+    height: 10px;
+    background: #FDBF57;
+    border-radius: 50%;
+    animation: wave 1.4s infinite ease-in-out;
+  }
+  
+  .typing-dot-wave:nth-child(1) { animation-delay: 0s; }
+  .typing-dot-wave:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot-wave:nth-child(3) { animation-delay: 0.4s; }
+  
+  @keyframes wave {
+    0%, 60%, 100% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-10px);
+    }
+  }
+  
+  /* Avatar Circles */
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .avatar-user {
+    @apply avatar-circle;
+    background: #FDBF57;
+  }
+  
+  .avatar-ai {
+    @apply avatar-circle;
+    background: #002452;
+  }
+  
+  /* Chat Container with dimmed gradient */
+  .chat-view {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .chat-view::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.3);
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  /* Smooth transitions */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Reduce motion for accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 36, 82, 0.2);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 36, 82, 0.3);
 }
