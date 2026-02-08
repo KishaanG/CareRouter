@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from exercisesToolbox import generate_exercise_toolbox
 from sqlmodel import Session, select, create_engine, SQLModel
-from models import User, Assessment, UserProfile
+from models import User, Assessment
 from schemas import UserAssessmentInput, FinalPlan, AssessmentScores, RegisterRequest
 from classify import classify_user_text
 from locationsFinder import get_nearby_resources, pick_best_resources
@@ -84,68 +84,6 @@ def read_my_assessments(current_user: User = Depends(get_current_user)):
         "history": assessments
     }
 
-@app.get("/api/me/profile")
-def get_user_profile(current_user: User = Depends(get_current_user)):
-    """
-    Returns user's additional profile information (birthdate, university, phone number).
-    """
-    with Session(engine) as session:
-        profile = session.exec(
-            select(UserProfile).where(UserProfile.user_id == current_user.id)
-        ).first()
-        
-        if not profile:
-            return {
-                "birthdate": None,
-                "university": None,
-                "phone_number": None
-            }
-        
-        return {
-            "birthdate": profile.birthdate,
-            "university": profile.university,
-            "phone_number": profile.phone_number
-        }
-
-@app.put("/api/me/profile")
-def update_user_profile(
-    data: dict,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Updates user's additional profile information.
-    """
-    with Session(engine) as session:
-        profile = session.exec(
-            select(UserProfile).where(UserProfile.user_id == current_user.id)
-        ).first()
-        
-        if not profile:
-            # Create new profile
-            profile = UserProfile(
-                user_id=current_user.id,
-                birthdate=data.get("birthdate"),
-                university=data.get("university"),
-                phone_number=data.get("phoneNumber")
-            )
-            session.add(profile)
-        else:
-            # Update existing profile
-            profile.birthdate = data.get("birthdate")
-            profile.university = data.get("university")
-            profile.phone_number = data.get("phoneNumber")
-        
-        session.add(profile)
-        session.commit()
-        session.refresh(profile)
-        
-        return {
-            "status": "success",
-            "birthdate": profile.birthdate,
-            "university": profile.university,
-            "phone_number": profile.phone_number
-        }
-
 # --- STEP A: The "Magic" Endpoint (Login Required) ---
 @app.post("/api/generate-plan", response_model=FinalPlan)
 async def generate_plan(
@@ -156,19 +94,6 @@ async def generate_plan(
     scores_dict = classify_user_text(data)
     scores = AssessmentScores(**scores_dict)
     
-    # Get user's profile information (university, etc.)
-    user_profile = None
-    with Session(engine) as session:
-        profile = session.exec(
-            select(UserProfile).where(UserProfile.user_id == current_user.id)
-        ).first()
-        if profile:
-            user_profile = {
-                "university": profile.university,
-                "phone_number": profile.phone_number,
-                "birthdate": profile.birthdate
-            }
-    
     # Step 2: Generate static resource list (helplines, crisis lines, etc.)
     from locationsFinder import generate_resource_list
     static_resources = generate_resource_list(scores)
@@ -178,7 +103,7 @@ async def generate_plan(
     raw_places = []
     if data.latitude and data.longitude:
         print(f"📍 Location provided: {data.latitude}, {data.longitude}")
-        raw_places = get_nearby_resources(data, scores, user_profile)
+        raw_places = get_nearby_resources(data, scores)
         print(f"🗺️ Google Maps returned {len(raw_places)} places")
     else:
         print(f"⚠️ No location provided - skipping Google Maps search")
@@ -186,7 +111,7 @@ async def generate_plan(
     # Step 4: Use LLM to pick the best local resources based on user needs
     local_resources = []
     if raw_places:
-        local_resources = pick_best_resources(data, scores, raw_places, user_profile)
+        local_resources = pick_best_resources(data, scores, raw_places)
         print(f"🤖 Gemini selected {len(local_resources)} local resources")
     else:
         print(f"⚠️ No raw places to filter - skipping Gemini selection")
