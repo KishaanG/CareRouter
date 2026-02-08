@@ -8,6 +8,7 @@ import TypingIndicator from '@/components/TypingIndicator'
 import { questions } from '@/data/questions'
 import { AssessmentSubmission, AssessmentResponse } from '@/types'
 import { API_URL } from '@/lib/api'
+import '@/lib/elevenlabs-voices' // Load voice listing utility
 interface ChatEntry {
   id: string
   type: 'user' | 'bot'
@@ -165,9 +166,20 @@ export default function AssessmentPage() {
       
       try {
         console.log('📤 Sending to backend:', `${API_URL}/api/generate-plan`)
+        
+        // Get JWT token if user is logged in
+        const token = localStorage.getItem('auth_token')
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+          console.log('🔐 Sending with authentication token')
+        }
+        
         const result = await fetch(`${API_URL}/api/generate-plan`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(assessmentData),
         })
         
