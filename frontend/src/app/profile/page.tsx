@@ -111,6 +111,12 @@ export default function ProfilePage() {
 									Take another assessment
 								</button>
 								<button
+									onClick={() => router.push("/results")}
+									className="px-6 py-3 rounded-full bg-queens-gold text-queens-navy font-semibold shadow-md hover:shadow-lg transition"
+								>
+									Back to results
+								</button>
+								<button
 									onClick={handleLogout}
 									className="px-6 py-3 rounded-full bg-white text-queens-navy font-semibold shadow-md hover:shadow-lg transition border border-queens-navy"
 								>

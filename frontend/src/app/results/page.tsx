@@ -108,6 +108,7 @@ export default function ResultsPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string; label: string } | null>(null)
   const [bookingLoading, setBookingLoading] = useState(false)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
+  const [hoveredQuickContact, setHoveredQuickContact] = useState<number | null>(null)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
   useEffect(() => {
@@ -132,6 +133,33 @@ export default function ResultsPage() {
     return pathwayData.recommended_pathway.filter(
       (r) => r.latitude != null && r.longitude != null
     ) as Array<{ name: string; type: string; description: string; latitude: number; longitude: number; [key: string]: unknown }>
+  }, [pathwayData?.recommended_pathway])
+
+  // Separate quick contacts (phone/website that are NOT facilities) from rest
+  const quickContacts = useMemo(() => {
+    if (!pathwayData?.recommended_pathway) return []
+    return pathwayData.recommended_pathway
+      .map((r, idx) => {
+        const contactInfo = r.data || r.contact
+        const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
+        const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
+        const isFacility = r.type === 'Facility'
+        return { resource: r, index: idx, isPhone, isWebsite, isContact: (isPhone || isWebsite) && !isFacility }
+      })
+      .filter((item) => item.isContact)
+  }, [pathwayData?.recommended_pathway])
+
+  const facilityResources = useMemo(() => {
+    if (!pathwayData?.recommended_pathway) return []
+    return pathwayData.recommended_pathway.map((r, idx) => {
+      const contactInfo = r.data || r.contact
+      const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
+      const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
+      const isFacility = r.type === 'Facility'
+      // Only skip if it's a phone/website AND NOT a facility
+      const shouldSkip = (isPhone || isWebsite) && !isFacility
+      return { resource: r, index: idx, shouldSkip }
+    })
   }, [pathwayData?.recommended_pathway])
 
   if (loading) {
@@ -225,13 +253,91 @@ export default function ResultsPage() {
   const showMap = !!apiKey
   const hasMapMarkers = resourcesWithCoords.length > 0 || (userLocation?.lat != null && userLocation?.lng != null)
 
-  const locationCount = recommended_pathway.length
+  const locationCount = facilityResources.length
   const countLabel = locationCount > 0 ? `1 - ${locationCount} of ${locationCount} Locations` : '0 Locations'
 
   return (
     <>
       <div className="app-background" />
-      <div className="relative z-10 flex h-screen overflow-hidden bg-white/95">
+      
+      {/* Quick Contacts Bar at Top with Profile Button */}
+      {quickContacts.length > 0 && (
+        <div className="relative z-20 border-b border-gray-200 bg-white/95 px-4 py-3 shadow-sm">
+          {/* Profile Button - Top Right */}
+          <div className="absolute right-4 top-3">
+            <button
+              type="button"
+              onClick={() => router.push('/profile')}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-queens-navy text-white hover:bg-queens-navy/90 transition-colors shadow-md"
+              aria-label="Profile"
+              title="Profile"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="max-w-full mx-auto text-center">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">Quick Contacts</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {quickContacts.map(({ resource, index, isPhone, isWebsite }) => {
+                const contactInfo = resource.data || resource.contact
+                const isHovered = hoveredQuickContact === index
+                return (
+                  <div
+                    key={index}
+                    className="relative"
+                    onMouseEnter={() => setHoveredQuickContact(index)}
+                    onMouseLeave={() => setHoveredQuickContact(null)}
+                  >
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors cursor-help"
+                    >
+                      <div>
+                        <p className="text-xs font-medium text-text-primary">{resource.name}</p>
+                        {isPhone && (
+                          <a
+                            href={`tel:${String(contactInfo).replace(/\D/g, '')}`}
+                            className="text-xs text-queens-navy font-semibold hover:underline flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="w-3 h-3" />
+                            {String(contactInfo)}
+                          </a>
+                        )}
+                        {isWebsite && (
+                          <a
+                            href={String(contactInfo).startsWith('http') ? String(contactInfo) : `https://${contactInfo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-queens-navy font-semibold hover:underline truncate max-w-[150px] block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {String(contactInfo)}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Tooltip */}
+                    {isHovered && resource.description && (
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-max max-w-xs">
+                        <div className="bg-queens-navy text-white text-xs rounded-lg p-2 shadow-lg">
+                          {resource.description}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-queens-navy"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="relative z-10 flex overflow-hidden bg-white/95" style={{ height: `calc(100vh - ${quickContacts.length > 0 ? '100px' : '0px'})` }}>
         {/* Left: locations list (~1/3 width, like the image) */}
         {listPanelOpen && (
           <div className="flex h-full w-full flex-col border-r border-gray-200 bg-gray-50/80 md:w-[36%] md:min-w-[320px] md:max-w-[420px]">
@@ -342,11 +448,14 @@ export default function ResultsPage() {
               )}
 
               <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">Click a location to see it on the map</p>
-            {recommended_pathway.length === 0 ? (
+            {facilityResources.length === 0 ? (
               <p className="text-text-secondary text-sm">No specific resources recommended at this time.</p>
             ) : (
               <div className="space-y-2 mb-4">
-                {recommended_pathway.map((resource, index) => {
+                {facilityResources.map(({ resource, index, shouldSkip }) => {
+                  // Skip quick contacts that are already shown at the top (phone/website that aren't facilities)
+                  if (shouldSkip) return null
+                  
                   const contactInfo = resource.data || resource.contact
                   const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
                   const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
