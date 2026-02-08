@@ -54,6 +54,21 @@ ISSUE_SPECIFIC_RESOURCES = {
     ]
 }
 
+TYPE_MAP = {
+        "mental_health": "psychotherapist | mental health clinic | counseling center",
+        "behavioral_addiction": "behavioral health center",
+        "gambling": "gambling addiction support | Gamblers Anonymous",
+        "alcohol": "alcohol recovery | Alcoholics Anonymous",
+        "drug_use": "addiction treatment | rehab center",
+        "crisis_safety": "hospital emergency room | crisis center",
+        "general_support": "community center | social services",
+        "financial_stress": "credit counseling | food bank",
+        "relationship_family": "marriage counselor | family therapy",
+        "grief_loss": "grief counseling",
+        "loneliness": "volunteer center | social club",
+        "unknown": "community health center"
+    }
+
 def generate_resource_list(assessment: AssessmentScores):
     """Generates the mandatory national/static safety net."""
     final_resources = []
@@ -111,42 +126,8 @@ def generate_resource_list(assessment: AssessmentScores):
 
 def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
     """Fetches raw data from Google Maps based on detected issue type."""
-    if MAPS_API_KEY == "YOUR_GOOGLE_MAPS_API_KEY":
-        # Return dummy data for testing when API key is not set
-        return [
-            {
-                "name": "Test Mental Health Clinic",
-                "rating": 4.5,
-                "vicinity": "123 Test Street, Kingston, ON"
-            },
-            {
-                "name": "Sample Counseling Center",
-                "rating": 4.0,
-                "vicinity": "456 Sample Ave, Kingston, ON"
-            },
-            {
-                "name": "Mock Therapy Services",
-                "rating": 4.2,
-                "vicinity": "789 Mock Blvd, Kingston, ON"
-            }
-        ]
 
-    type_map = {
-        "mental_health": "psychotherapist | mental health clinic | counseling center",
-        "behavioral_addiction": "behavioral health center",
-        "gambling": "gambling addiction support | Gamblers Anonymous",
-        "alcohol": "alcohol recovery | Alcoholics Anonymous",
-        "drug_use": "addiction treatment | rehab center",
-        "crisis_safety": "hospital emergency room | crisis center",
-        "general_support": "community center | social services",
-        "financial_stress": "credit counseling | food bank",
-        "relationship_family": "marriage counselor | family therapy",
-        "grief_loss": "grief counseling",
-        "loneliness": "volunteer center | social club",
-        "unknown": "community health center"
-    }
-
-    keyword = type_map.get(assessment.issue_type, "mental health support")
+    keyword = TYPE_MAP.get(assessment.issue_type, "mental health support")
     url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={responses.latitude},{responses.longitude}&radius=5000&keyword={keyword}&key={MAPS_API_KEY}"
 
     try:
@@ -160,19 +141,6 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
     """Uses Gemini to select the 3 most appropriate local results based on user story."""
     if not raw_places:
         return []
-
-    # If Gemini API key is not set, return dummy selections for testing
-    if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY":
-        final_output = []
-        for i in range(min(3, len(raw_places))):
-            place = raw_places[i]
-            final_output.append({
-                "name": place.get("name"),
-                "type": "Facility",
-                "description": f"Selected as a suitable {assessment.issue_type.replace('_', ' ')} resource based on user needs.",
-                "data": place.get("vicinity")
-            })
-        return final_output
 
     # Simplify data for the LLM
     places_summary = []
