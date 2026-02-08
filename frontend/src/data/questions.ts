@@ -18,7 +18,7 @@ export const questions = [
   {
     id: 3,
     text: 'How soon do you feel you need support?',
-    subtitle: "Is this something you need help with right away, or can it wait a bit?",
+    subtitle: "Is this something you need urgent help with?",
   },
   {
     id: 4,
