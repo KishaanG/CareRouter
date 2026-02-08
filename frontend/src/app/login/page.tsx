@@ -16,11 +16,64 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    // TODO: Implement actual authentication
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      if (isLogin) {
+        // LOGIN: Send as OAuth2 form data
+        const formData = new URLSearchParams()
+        formData.append('username', email) // OAuth2 expects 'username', not 'email'
+        formData.append('password', password)
+
+        const response = await fetch('http://localhost:8000/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString(),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.detail || 'Login failed')
+        }
+
+        const data = await response.json()
+        // Store JWT token
+        localStorage.setItem('auth_token', data.access_token)
+        console.log('✅ Login successful, token stored')
+        
+      } else {
+        // REGISTER: Send as JSON
+        const response = await fetch('http://localhost:8000/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.detail || 'Registration failed')
+        }
+
+        const data = await response.json()
+        // Store JWT token
+        localStorage.setItem('auth_token', data.access_token)
+        console.log('✅ Registration successful, token stored')
+      }
+
+      // Redirect to assessment page
       router.push('/assessment')
-    }, 1000)
+      
+    } catch (err: any) {
+      console.error('Auth error:', err)
+      setError(err.message || 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -68,6 +121,12 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+              
               <button
                 type="submit"
                 className="w-full bg-queens-navy hover:bg-opacity-90 text-white font-medium py-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
@@ -77,33 +136,40 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="text-center text-sm text-text-secondary mt-6">
-              {isLogin ? (
-                <span>
-                  Don't have an account?{' '}
-                  <button
-                    onClick={() => setIsLogin(false)}
-                    className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
-                  >
-                    Sign Up
-                  </button>
-                </span>
-              ) : (
-                <span>
-                  Already have an account?{' '}
-                  <button
-                    onClick={() => setIsLogin(true)}
-                    className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
-                  >
-                    Log In
-                  </button>
-                </span>
-              )}
+            <div className="space-y-3 mt-6">
+              <div className="text-center text-sm text-text-secondary">
+                {isLogin ? (
+                  <span>
+                    Don't have an account?{' '}
+                    <button
+                      onClick={() => setIsLogin(false)}
+                      className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
+                    >
+                      Sign Up
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => setIsLogin(true)}
+                      className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
+                    >
+                      Log In
+                    </button>
+                  </span>
+                )}
+              </div>
+              
+              <div className="text-center">
+                <button
+                  onClick={() => router.push('/assessment')}
+                  className="text-sm text-text-secondary hover:text-queens-navy font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded px-3 py-1"
+                >
+                  Continue as Guest →
+                </button>
+              </div>
             </div>
-
-            {error && (
-              <p className="text-error text-sm text-center mt-4">{error}</p>
-            )}
 
             <p className="text-xs text-text-secondary text-center mt-8">
               By continuing, you agree to our <a href="#" className="underline hover:text-queens-navy">Privacy Policy</a> and <a href="#" className="underline hover:text-queens-navy">Terms of Service</a>.

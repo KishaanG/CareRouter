@@ -7,7 +7,8 @@ import ChatInput from '@/components/ChatInput'
 import TypingIndicator from '@/components/TypingIndicator'
 import { questions } from '@/data/questions'
 import { AssessmentSubmission, AssessmentResponse } from '@/types'
-import { API_URL } from '@/server/api'
+import { API_URL } from '@/lib/api'
+import '@/lib/elevenlabs-voices' // Load voice listing utility
 interface ChatEntry {
   id: string
   type: 'user' | 'bot'
@@ -161,6 +162,17 @@ export default function AssessmentPage() {
           await new Promise((r) => setTimeout(r, 1500))
           currentLocation = locationRef.current
         }
+
+        // Get JWT token if user is logged in
+        const token = localStorage.getItem('auth_token')
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+          console.log('🔐 Sending with authentication token')
+        }
+
         const assessmentData: AssessmentSubmission = {
           primary_concern: finalResponses[0] || '',
           answer_distress: finalResponses[1] || '',
@@ -171,15 +183,14 @@ export default function AssessmentPage() {
           latitude: currentLocation?.latitude ?? null,
           longitude: currentLocation?.longitude ?? null,
         }
-        
+
         console.log('=== Assessment Data (JSON for Backend) ===')
         console.log(JSON.stringify(assessmentData, null, 2))
         console.log('==========================================')
         console.log('📍 Location being sent:', currentLocation ? `${currentLocation.latitude}, ${currentLocation.longitude}` : 'none')
-        
         const result = await fetch(`${API_URL}/api/generate-plan`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(assessmentData),
         })
         
