@@ -30,6 +30,7 @@ export default function AssessmentPage() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const hasLocationRequestedRef = useRef(false)
   const hasStartedRef = useRef(false)
+  const locationRef = useRef<{ latitude: number; longitude: number } | null>(null)
   
   // Auto-start the assessment when component mounts
   useEffect(() => {
@@ -68,6 +69,11 @@ export default function AssessmentPage() {
     }
   }, [])
   
+  // Keep ref in sync so async save always gets latest location
+  useEffect(() => {
+    locationRef.current = location
+  }, [location])
+
   // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -136,21 +142,6 @@ export default function AssessmentPage() {
     setIsComplete(true)
     setIsTyping(true)
     
-    const assessmentData: AssessmentSubmission = {
-      primary_concern: finalResponses[0] || '',
-      answer_distress: finalResponses[1] || '',
-      answer_functioning: finalResponses[2] || '',
-      answer_urgency: finalResponses[3] || '',
-      answer_safety: finalResponses[4] || '',
-      answer_constraints: finalResponses[5] || '',
-      latitude: location?.latitude || null,
-      longitude: location?.longitude || null,
-    }
-    
-    console.log('=== Assessment Data (JSON for Backend) ===')
-    console.log(JSON.stringify(assessmentData, null, 2))
-    console.log('==========================================')
-    
     setTimeout(async () => {
       setIsTyping(false)
       
@@ -164,7 +155,28 @@ export default function AssessmentPage() {
       setChatHistory((prev) => [...prev, finalMessage])
       
       try {
-        console.log('📤 Sending to backend:', `${API_URL}/api/generate-plan`)
+        // Give geolocation a moment to resolve if it wasn't ready when user submitted
+        let currentLocation = locationRef.current
+        if (!currentLocation) {
+          await new Promise((r) => setTimeout(r, 1500))
+          currentLocation = locationRef.current
+        }
+        const assessmentData: AssessmentSubmission = {
+          primary_concern: finalResponses[0] || '',
+          answer_distress: finalResponses[1] || '',
+          answer_functioning: finalResponses[2] || '',
+          answer_urgency: finalResponses[3] || '',
+          answer_safety: finalResponses[4] || '',
+          answer_constraints: finalResponses[5] || '',
+          latitude: currentLocation?.latitude ?? null,
+          longitude: currentLocation?.longitude ?? null,
+        }
+        
+        console.log('=== Assessment Data (JSON for Backend) ===')
+        console.log(JSON.stringify(assessmentData, null, 2))
+        console.log('==========================================')
+        console.log('📍 Location being sent:', currentLocation ? `${currentLocation.latitude}, ${currentLocation.longitude}` : 'none')
+        
         const result = await fetch(`${API_URL}/api/generate-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -179,7 +191,15 @@ export default function AssessmentPage() {
         
         const pathwayData: AssessmentResponse = await result.json()
         console.log('✅ Pathway received from backend:', pathwayData)
-        localStorage.setItem('pathway', JSON.stringify(pathwayData))
+        const latestLocation = locationRef.current
+        console.log('📍 Storing userLocation for results:', latestLocation ? 'yes' : 'no')
+        const toStore = {
+          ...pathwayData,
+          userLocation: latestLocation
+            ? { lat: latestLocation.latitude, lng: latestLocation.longitude }
+            : null,
+        }
+        localStorage.setItem('pathway', JSON.stringify(toStore))
       } catch (error) {
         console.error('❌ Error submitting assessment:', error)
         // Show user-friendly error message
