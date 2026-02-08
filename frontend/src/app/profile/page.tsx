@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { API_URL, logout } from "@/assess_server/api"
 
+type AdditionalInfo = {
+	birthdate?: string
+	university?: string
+	phoneNumber?: string
+}
+
 type AssessmentRecord = {
 	id: number
 	user_id: number
@@ -38,12 +44,32 @@ export default function ProfilePage() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [selected, setSelected] = useState<AssessmentRecord | null>(null)
+	const [additionalInfo, setAdditionalInfo] = useState<AdditionalInfo>({})
+	const [isEditingInfo, setIsEditingInfo] = useState(false)
 
 	useEffect(() => {
 		const token = localStorage.getItem("auth_token")
 		if (!token) {
 			router.push("/login")
 			return
+		}
+
+		// Load profile data from backend
+		const loadProfile = async () => {
+			try {
+				const response = await fetch(`${API_URL}/api/me/profile`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				})
+
+				if (response.ok) {
+					const data = await response.json()
+					setAdditionalInfo(data)
+				}
+			} catch (err) {
+				console.error("Failed to load profile:", err)
+			}
 		}
 
 		const load = async () => {
@@ -75,6 +101,7 @@ export default function ProfilePage() {
 			}
 		}
 
+		loadProfile()
 		load()
 	}, [router])
 
@@ -85,6 +112,32 @@ export default function ProfilePage() {
 	const handleLogout = () => {
 		logout()
 		router.push("/login")
+	}
+
+	const handleSaveAdditionalInfo = async () => {
+		const token = localStorage.getItem("auth_token")
+		try {
+			const response = await fetch(`${API_URL}/api/me/profile`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					birthdate: additionalInfo.birthdate,
+					university: additionalInfo.university,
+					phoneNumber: additionalInfo.phoneNumber,
+				}),
+			})
+
+			if (response.ok) {
+				setIsEditingInfo(false)
+			} else {
+				console.error("Failed to save profile")
+			}
+		} catch (error) {
+			console.error("Failed to save profile:", error)
+		}
 	}
 
 	return (
@@ -123,6 +176,107 @@ export default function ProfilePage() {
 									Log out
 								</button>
 							</div>
+						</div>
+
+						<div className="mb-6 rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
+							<div className="flex items-center justify-between mb-4">
+								<h2 className="text-xl font-semibold text-queens-navy">Additional Information</h2>
+								<button
+									type="button"
+									onClick={() => setIsEditingInfo(!isEditingInfo)}
+									className="text-sm px-4 py-2 rounded-lg bg-queens-navy text-white hover:bg-queens-navy/90 transition"
+								>
+									{isEditingInfo ? "Cancel" : "Edit"}
+								</button>
+							</div>
+
+							{isEditingInfo ? (
+								<div className="space-y-4">
+									<div>
+										<label className="block text-sm font-medium text-text-primary mb-2">
+											Birthdate (optional)
+										</label>
+										<input
+											type="date"
+											value={additionalInfo.birthdate || ""}
+											onChange={(e) =>
+												setAdditionalInfo({
+													...additionalInfo,
+													birthdate: e.target.value,
+												})
+											}
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-queens-navy"
+										/>
+									</div>
+
+									<div>
+										<label className="block text-sm font-medium text-text-primary mb-2">
+											University (optional)
+										</label>
+										<input
+											type="text"
+											placeholder="e.g., University of Toronto"
+											value={additionalInfo.university || ""}
+											onChange={(e) =>
+												setAdditionalInfo({
+													...additionalInfo,
+													university: e.target.value,
+												})
+											}
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-queens-navy"
+										/>
+									</div>
+
+									<div>
+										<label className="block text-sm font-medium text-text-primary mb-2">
+											Phone Number (optional)
+										</label>
+										<input
+											type="tel"
+											placeholder="e.g., (416) 555-0123"
+											value={additionalInfo.phoneNumber || ""}
+											onChange={(e) =>
+												setAdditionalInfo({
+													...additionalInfo,
+													phoneNumber: e.target.value,
+												})
+											}
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-queens-navy"
+										/>
+									</div>
+
+									<button
+										type="button"
+										onClick={handleSaveAdditionalInfo}
+										className="w-full px-4 py-2 rounded-lg bg-queens-gold text-queens-navy font-semibold hover:bg-queens-gold/90 transition"
+									>
+										Save Information
+									</button>
+								</div>
+							) : (
+								<div className="space-y-3 text-sm">
+									<div className="flex items-start gap-3">
+										<span className="font-medium text-text-secondary w-32">Birthdate:</span>
+										<span className="text-text-primary">
+											{additionalInfo.birthdate
+												? new Date(additionalInfo.birthdate).toLocaleDateString()
+												: "Not provided"}
+										</span>
+									</div>
+									<div className="flex items-start gap-3">
+										<span className="font-medium text-text-secondary w-32">University:</span>
+										<span className="text-text-primary">
+											{additionalInfo.university || "Not provided"}
+										</span>
+									</div>
+									<div className="flex items-start gap-3">
+										<span className="font-medium text-text-secondary w-32">Phone Number:</span>
+										<span className="text-text-primary">
+											{additionalInfo.phoneNumber || "Not provided"}
+										</span>
+									</div>
+								</div>
+							)}
 						</div>
 
 						<div className="mb-6 flex items-center justify-between">
