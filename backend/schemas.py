@@ -29,9 +29,7 @@ class FinalPlan(BaseModel):
     scores: AssessmentScores
     recommended_pathway: List[dict] # [{"name": "Crisis Line", "type": "Phone", "desc": "...", "data": "..."}, ]
 
-# --- SAVE: The "Create Account" Payload ---
-class SaveProfileRequest(BaseModel):
+# --- AUTH: Register Payload ---
+class RegisterRequest(BaseModel):
     email: str
     password: str
-    original_input: UserAssessmentInput
-    generated_plan: FinalPlan
