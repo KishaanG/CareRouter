@@ -30,6 +30,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="action-card p-8">
             <div className="text-center mb-8">
+              <img src="/CareRouterLogo.png" alt="CareRouter Logo" className="h-20 w-auto mx-auto mb-4" />
               <h1 className="text-4xl font-heading font-bold text-queens-navy mb-3">
                 Welcome to CareRouter
               </h1>

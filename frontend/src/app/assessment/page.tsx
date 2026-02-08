@@ -207,6 +207,7 @@ export default function AssessmentPage() {
           <div className="max-w-3xl mx-auto">
             {/* Header with Welcome Text - No box, just text */}
             <div className="text-center py-8 mb-6">
+              <img src="/CareRouterLogo.png" alt="CareRouter Logo" className="h-20 w-auto mx-auto mb-4" />
               <h1 className="welcome-text text-queens-navy mb-2">
                 Hi there, how can I help you today?
               </h1>

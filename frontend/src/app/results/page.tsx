@@ -74,6 +74,7 @@ export default function ResultsPage() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
+            <img src="/CareRouterLogo.png" alt="CareRouter Logo" className="h-20 w-auto mx-auto mb-4" />
             <h1 className="text-4xl font-heading font-bold text-queens-navy mb-3">
               Your Personalized Support Pathway
             </h1>
