@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select, create_engine, SQLModel
 from models import User, Assessment
-from schemas import UserAssessmentInput, SaveProfileRequest, FinalPlan, AssessmentScores
+from schemas import UserAssessmentInput, FinalPlan, AssessmentScores, RegisterRequest
 from classify import classify_user_text
 from locationsFinder import get_nearby_resources, pick_best_resources
 from auth import get_password_hash, create_access_token, verify_password, get_current_user
@@ -46,6 +46,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         access_token = create_access_token(data={"sub": user.email})
         return {"access_token": access_token, "token_type": "bearer"}
 
+@app.post("/api/register")
+def register(request: RegisterRequest):
+    with Session(engine) as session:
+        existing_user = session.exec(select(User).where(User.email == request.email)).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email taken")
+
+        new_user = User(
+            email=request.email,
+            hashed_password=get_password_hash(request.password)
+        )
+        session.add(new_user)
+        session.commit()
+        session.refresh(new_user)
+
+        access_token = create_access_token(data={"sub": new_user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+
 # --- PROTECTED ROUTE EXAMPLE ---
 # Only accessible if the request has a valid Bearer token
 @app.get("/api/me/assessments")
@@ -53,15 +71,24 @@ def read_my_assessments(current_user: User = Depends(get_current_user)):
     """
     Returns all past assessments for the currently logged-in user.
     """
-    # Because of the Relationship in models.py, we can just access .assessments
+    with Session(engine) as session:
+        assessments = session.exec(
+            select(Assessment)
+            .where(Assessment.user_id == current_user.id)
+            .order_by(Assessment.created_at.desc())
+        ).all()
+
     return {
         "email": current_user.email,
-        "history": current_user.assessments
+        "history": assessments
     }
 
-# --- STEP A: The "Magic" Endpoint (No Login) ---
+# --- STEP A: The "Magic" Endpoint (Login Required) ---
 @app.post("/api/generate-plan", response_model=FinalPlan)
-async def generate_plan(data: UserAssessmentInput):
+async def generate_plan(
+    data: UserAssessmentInput,
+    current_user: User = Depends(get_current_user),
+):
     # Step 1: Get classification scores from Gemini (includes personalized_note)
     scores_dict = classify_user_text(data)
     scores = AssessmentScores(**scores_dict)
@@ -108,60 +135,39 @@ async def generate_plan(data: UserAssessmentInput):
     print(f"{'='*60}\n")
     
     # Return complete plan (personalized_note is in scores)
-    return FinalPlan(
+    plan = FinalPlan(
         scores=scores,
         recommended_pathway=pathway
     )
 
-# --- STEP B: The "Save" Endpoint (Login) ---
-@app.post("/api/register-and-save")
-async def register_and_save(request: SaveProfileRequest):
     with Session(engine) as session:
-        # 1. User Check
-        existing_user = session.exec(select(User).where(User.email == request.email)).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email taken")
-
-        # 2. Create User
-        new_user = User(
-            email=request.email, 
-            hashed_password=get_password_hash(request.password)
-        )
-        session.add(new_user)
-        session.commit()
-        session.refresh(new_user)
-
-        # 3. Store the Evidence
         new_assessment = Assessment(
-            user_id=new_user.id,
-            
+            user_id=current_user.id,
+
             # The Raw Text - Matches UserAssessmentInput
-            raw_primary_concern=request.original_input.primary_concern,
-            raw_distress=request.original_input.answer_distress,
-            raw_functioning=request.original_input.answer_functioning,
-            raw_urgency=request.original_input.answer_urgency,
-            raw_safety=request.original_input.answer_safety,
-            raw_constraints=request.original_input.answer_constraints,
-            latitude=request.original_input.latitude,
-            longitude=request.original_input.longitude,
+            raw_primary_concern=data.primary_concern,
+            raw_distress=data.answer_distress,
+            raw_functioning=data.answer_functioning,
+            raw_urgency=data.answer_urgency,
+            raw_safety=data.answer_safety,
+            raw_constraints=data.answer_constraints,
+            latitude=data.latitude,
+            longitude=data.longitude,
 
             # The Calculated Scores - Matches AssessmentScores
-            issue_type=request.generated_plan.scores.issue_type,
-            urgency=request.generated_plan.scores.urgency,
-            severity_score=request.generated_plan.scores.severity_score,
-            needs_immediate_resources=request.generated_plan.scores.needs_immediate_resources,
-            confidence=request.generated_plan.scores.confidence,
-            reasoning=request.generated_plan.scores.reasoning,
-            personalized_note=request.generated_plan.scores.personalized_note,
+            issue_type=scores.issue_type,
+            urgency=scores.urgency,
+            severity_score=scores.severity_score,
+            needs_immediate_resources=scores.needs_immediate_resources,
+            confidence=scores.confidence,
+            reasoning=scores.reasoning,
+            personalized_note=scores.personalized_note,
 
             # The Full Recommendation
-            full_plan_json=request.generated_plan.dict()
+            full_plan_json=plan.dict()
         )
         session.add(new_assessment)
         session.commit()
 
-        # 4. Return Token
-        return {
-            "access_token": create_access_token({"sub": new_user.email}),
-            "message": "Plan saved securely."
-        }
+    return plan
+
