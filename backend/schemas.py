@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
 
 # --- INPUT: What the frontend sends ---
 class UserAssessmentInput(BaseModel):
@@ -28,6 +28,7 @@ class AssessmentScores(BaseModel):
 class FinalPlan(BaseModel):
     scores: AssessmentScores
     recommended_pathway: List[dict] # [{"name": "Crisis Line", "type": "Phone", "desc": "...", "data": "..."}, ]
+    exercises: List[dict[str, Any]] = []
 
 # --- AUTH: Register Payload ---
 class RegisterRequest(BaseModel):
