@@ -69,14 +69,24 @@ async def generate_plan(data: UserAssessmentInput):
     # Step 2: Generate static resource list (helplines, crisis lines, etc.)
     from locationsFinder import generate_resource_list
     static_resources = generate_resource_list(scores)
+    print(f"📞 Static resources count: {len(static_resources)}")
     
     # Step 3: Get nearby resources from Google Maps (if location available)
     raw_places = []
     if data.latitude and data.longitude:
+        print(f"📍 Location provided: {data.latitude}, {data.longitude}")
         raw_places = get_nearby_resources(data, scores)
+        print(f"🗺️ Google Maps returned {len(raw_places)} places")
+    else:
+        print(f"⚠️ No location provided - skipping Google Maps search")
     
     # Step 4: Use LLM to pick the best local resources based on user needs
-    local_resources = pick_best_resources(data, scores, raw_places)
+    local_resources = []
+    if raw_places:
+        local_resources = pick_best_resources(data, scores, raw_places)
+        print(f"🤖 Gemini selected {len(local_resources)} local resources")
+    else:
+        print(f"⚠️ No raw places to filter - skipping Gemini selection")
     
     # Step 5: Combine static + local resources
     pathway = static_resources + local_resources
@@ -88,9 +98,11 @@ async def generate_plan(data: UserAssessmentInput):
     print(f"Issue Type: {scores.issue_type}")
     print(f"Severity: {scores.severity_score}/4")
     print(f"Urgency: {scores.urgency}")
+    print(f"Static resources: {len(static_resources)}")
+    print(f"Local resources: {len(local_resources)}")
     print(f"Total Resources: {len(pathway)}")
     for i, res in enumerate(pathway[:5], 1):
-        print(f"  {i}. {res.get('name')} ({res.get('type')})")
+        print(f"  {i}. {res.get('name')} ({res.get('type')}) - {res.get('data')}")
     if len(pathway) > 5:
         print(f"  ... and {len(pathway) - 5} more")
     print(f"{'='*60}\n")
