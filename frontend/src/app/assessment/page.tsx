@@ -7,8 +7,8 @@ import ChatInput from '@/components/ChatInput'
 import TypingIndicator from '@/components/TypingIndicator'
 import { questions } from '@/data/questions'
 import { AssessmentSubmission, AssessmentResponse } from '@/types'
-import { API_URL } from '@/lib/api'
-import '@/lib/elevenlabs-voices' // Load voice listing utility
+import { API_URL } from '@/assess_server/api'
+import '@/assess_server/elevenlabs-voices' // Load voice listing utility
 interface ChatEntry {
   id: string
   type: 'user' | 'bot'
