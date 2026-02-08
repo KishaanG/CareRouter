@@ -141,7 +141,7 @@ export default function ResultsPage() {
     return pathwayData.recommended_pathway
       .map((r, idx) => {
         const contactInfo = r.data || r.contact
-        const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
+        const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo))
         const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
         const isFacility = r.type === 'Facility'
         return { resource: r, index: idx, isPhone, isWebsite, isContact: (isPhone || isWebsite) && !isFacility }
@@ -153,7 +153,7 @@ export default function ResultsPage() {
     if (!pathwayData?.recommended_pathway) return []
     return pathwayData.recommended_pathway.map((r, idx) => {
       const contactInfo = r.data || r.contact
-      const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
+      const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo))
       const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
       const isFacility = r.type === 'Facility'
       // Only skip if it's a phone/website AND NOT a facility
@@ -457,7 +457,7 @@ export default function ResultsPage() {
                   if (shouldSkip) return null
                   
                   const contactInfo = resource.data || resource.contact
-                  const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo).replace(/[^\d\-\(\)\s]/g, ''))
+                  const isPhone = contactInfo && /^[\d\-\(\)\s]+$/.test(String(contactInfo))
                   const isWebsite = contactInfo && (String(contactInfo).startsWith('http') || String(contactInfo).includes('.ca') || String(contactInfo).includes('.com'))
                   const isAddress = contactInfo && !isPhone && !isWebsite
                   const hasCoords = resource.latitude != null && resource.longitude != null
