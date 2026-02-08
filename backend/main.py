@@ -135,24 +135,27 @@ async def register_and_save(request: SaveProfileRequest):
         new_assessment = Assessment(
             user_id=new_user.id,
             
-            # The Raw Text
+            # The Raw Text - Matches UserAssessmentInput
+            raw_primary_concern=request.original_input.primary_concern,
             raw_distress=request.original_input.answer_distress,
             raw_functioning=request.original_input.answer_functioning,
             raw_urgency=request.original_input.answer_urgency,
             raw_safety=request.original_input.answer_safety,
             raw_constraints=request.original_input.answer_constraints,
-            latitude=request.original_input.latitude or 0.0,
-            longitude=request.original_input.longitude or 0.0,
+            latitude=request.original_input.latitude,
+            longitude=request.original_input.longitude,
 
-            # The Calculated Scores (extracted from the plan)
+            # The Calculated Scores - Matches AssessmentScores
             issue_type=request.generated_plan.scores.issue_type,
             urgency=request.generated_plan.scores.urgency,
             severity_score=request.generated_plan.scores.severity_score,
             needs_immediate_resources=request.generated_plan.scores.needs_immediate_resources,
             confidence=request.generated_plan.scores.confidence,
+            reasoning=request.generated_plan.scores.reasoning,
+            personalized_note=request.generated_plan.scores.personalized_note,
 
             # The Full Recommendation
-            full_plan_json=request.generated_plan.json()
+            full_plan_json=request.generated_plan.dict()
         )
         session.add(new_assessment)
         session.commit()
