@@ -9,6 +9,7 @@ class User(SQLModel, table=True):
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     assessments: List["Assessment"] = Relationship(back_populates="user")
+    profile: Optional["UserProfile"] = Relationship(back_populates="user")
 
 class Assessment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -38,3 +39,11 @@ class Assessment(SQLModel, table=True):
     full_plan_json: dict = Field(default={}, sa_column=Column(JSON)) 
 
     user: Optional[User] = Relationship(back_populates="assessments")
+
+class UserProfile(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True)
+    birthdate: Optional[str] = None
+    university: Optional[str] = None
+    phone_number: Optional[str] = None
+    user: Optional[User] = Relationship(back_populates="profile")
