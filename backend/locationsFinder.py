@@ -146,7 +146,7 @@ def _places_nearby_search(lat: float, lng: float, keyword: str) -> list:
         return []
 
 
-def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores, user_profile: dict = None):
+def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentScores):
     """Fetches raw data from Google Maps Places API (Nearby Search) based on detected issue type."""
 
     lat, lng = responses.latitude, responses.longitude
@@ -161,7 +161,7 @@ def get_nearby_resources(responses: UserAssessmentInput, assessment: AssessmentS
         results = _places_nearby_search(lat, lng, "mental health")
     return results
 
-def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentScores, raw_places: list, user_profile: dict = None):
+def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentScores, raw_places: list):
     """Uses Gemini to select the 3 most appropriate local results based on user story."""
     if not raw_places:
         return []
@@ -231,52 +231,6 @@ def pick_best_resources(responses: UserAssessmentInput, assessment: AssessmentSc
                     out["latitude"] = loc["lat"]
                     out["longitude"] = loc["lng"]
                 final_output.append(out)
-        # If user has a university specified, attempt to geocode the university
-        # and add a simple "University Wellness Centre" facility at the start
-        # of the returned list. This keeps the rest of the selections based on
-        # the user's current location (raw_places) while ensuring the campus
-        # wellness centre is included when available.
-        try:
-            if user_profile and user_profile.get("university"):
-                uni = user_profile.get("university")
-                # Try searching for a university wellness centre specifically
-                query = f"{uni} wellness centre"
-                geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={requests.utils.requote_uri(query)}&key={MAPS_API_KEY}"
-                geo_resp = requests.get(geo_url)
-                geo_data = geo_resp.json()
-                geo_results = geo_data.get("results", [])
-                lat = lng = None
-                if geo_results:
-                    loc = geo_results[0].get("geometry", {}).get("location", {})
-                    lat = loc.get("lat")
-                    lng = loc.get("lng")
-                else:
-                    # Fallback: geocode the university name alone
-                    geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={requests.utils.requote_uri(uni)}&key={MAPS_API_KEY}"
-                    geo_resp = requests.get(geo_url)
-                    geo_data = geo_resp.json()
-                    geo_results = geo_data.get("results", [])
-                    if geo_results:
-                        loc = geo_results[0].get("geometry", {}).get("location", {})
-                        lat = loc.get("lat")
-                        lng = loc.get("lng")
-
-                uni_fac = {
-                    "name": f"{uni} Wellness Centre",
-                    "type": "Facility",
-                    "description": f"On-campus wellness services at {uni}",
-                    "data": uni,
-                }
-                if lat is not None and lng is not None:
-                    uni_fac["latitude"] = lat
-                    uni_fac["longitude"] = lng
-
-                # Prepend the university facility so it appears first
-                final_output.insert(0, uni_fac)
-        except Exception:
-            # Don't fail the whole selection flow if geocoding fails
-            pass
-
         return final_output
     except Exception as e:
         print(f"Gemini Selection Error: {e}")
