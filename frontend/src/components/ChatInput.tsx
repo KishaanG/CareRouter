@@ -1,6 +1,4 @@
-'use client'
-
-import { useState, KeyboardEvent } from 'react'
+import React, { useState } from 'react'
 import { Send } from 'lucide-react'
 
 interface ChatInputProps {
@@ -10,40 +8,41 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ onSend, placeholder = 'Type your answer...', disabled = false }: ChatInputProps) {
-  const [message, setMessage] = useState('')
-
+  const [input, setInput] = useState('')
+  
   const handleSend = () => {
-    if (message.trim() && !disabled) {
-      onSend(message.trim())
-      setMessage('')
+    if (input.trim() && !disabled) {
+      onSend(input.trim())
+      setInput('')
     }
   }
-
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+  
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
   }
-
+  
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex items-center gap-4">
       <input
         type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyPress={handleKeyPress}
+        className="input-chat-modern flex-1"
         placeholder={placeholder}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyPress={handleKeyPress}
         disabled={disabled}
-        className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition disabled:bg-gray-100 disabled:cursor-not-allowed"
-        autoFocus
+        aria-label="Type your message"
       />
       <button
         onClick={handleSend}
-        disabled={!message.trim() || disabled}
-        className="bg-primary-600 hover:bg-primary-700 text-white p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-600"
+        className="send-button-circular"
+        disabled={!input.trim() || disabled}
+        aria-label="Send message"
       >
-        <Send className="w-5 h-5" />
+        <Send size={24} className="text-white" />
       </button>
     </div>
   )

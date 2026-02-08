@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Heart } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -10,112 +9,107 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
-    // TODO: Person 2 - Connect to backend API endpoint
-    // POST /auth/login or /auth/signup
-    
-    try {
-      // Simulated auth for now
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Store auth token (Person 2 will implement)
-      localStorage.setItem('auth_token', 'demo-token')
-      
-      // Redirect to assessment
-      router.push('/assessment')
-    } catch (error) {
-      console.error('Auth error:', error)
-      alert('Login failed. Please try again.')
-    } finally {
+    // TODO: Implement actual authentication
+    setTimeout(() => {
       setLoading(false)
-    }
+      router.push('/assessment')
+    }, 1000)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col items-center justify-center p-4">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center mb-4">
-          <Heart className="w-12 h-12 text-primary-600" />
-        </div>
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">CareRouter</h1>
-        <p className="text-gray-600 max-w-md">
-          Find the right mental health support in your area
-        </p>
-      </div>
+    <>
+      <div className="app-background" />
+      <div className="min-h-screen flex items-center justify-center p-6 relative z-10">
+        <div className="w-full max-w-md">
+          <div className="action-card p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-heading font-bold text-queens-navy mb-3">
+                Welcome to CareRouter
+              </h1>
+              <p className="text-text-secondary text-lg">
+                Your personalized pathway to mental health support.
+              </p>
+            </div>
 
-      {/* Login Card */}
-      <div className="card w-full max-w-md">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
-          {isLogin ? 'Welcome back' : 'Create account'}
-        </h2>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-queens-gold focus:border-queens-gold outline-none transition-all duration-200"
+                  placeholder="your.email@queensu.ca"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-queens-gold focus:border-queens-gold outline-none transition-all duration-200"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-queens-navy hover:bg-opacity-90 text-white font-medium py-4 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : isLogin ? 'Log In' : 'Sign Up'}
+              </button>
+            </form>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="your@email.com"
-              required
-            />
+            <div className="text-center text-sm text-text-secondary mt-6">
+              {isLogin ? (
+                <span>
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => setIsLogin(false)}
+                    className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
+                  >
+                    Sign Up
+                  </button>
+                </span>
+              ) : (
+                <span>
+                  Already have an account?{' '}
+                  <button
+                    onClick={() => setIsLogin(true)}
+                    className="text-queens-navy hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-queens-gold focus:ring-offset-2 rounded"
+                  >
+                    Log In
+                  </button>
+                </span>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-error text-sm text-center mt-4">{error}</p>
+            )}
+
+            <p className="text-xs text-text-secondary text-center mt-8">
+              By continuing, you agree to our <a href="#" className="underline hover:text-queens-navy">Privacy Policy</a> and <a href="#" className="underline hover:text-queens-navy">Terms of Service</a>.
+            </p>
           </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : isLogin ? 'Log in' : 'Sign up'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-          >
-            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
-          </button>
-        </div>
-
-        {/* Privacy Notice */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center leading-relaxed">
-            This tool helps you find support. It does not diagnose or replace professional care.
-            Your data is private and secure.
-          </p>
         </div>
       </div>
-
-      {/* Footer Info */}
-      <div className="mt-8 text-center text-sm text-gray-500">
-        <p>Need immediate help? Call 988 (Suicide & Crisis Lifeline)</p>
-      </div>
-    </div>
+    </>
   )
 }

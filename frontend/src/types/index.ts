@@ -25,23 +25,23 @@ export interface Resource {
   whyRecommended?: string
 }
 
-// Backend response format
+// Backend response format - Matches backend/schemas.py FinalPlan
 export interface AssessmentResponse {
   scores: {
-    severity_tier: string      // "Low", "Moderate", "High"
-    urgency: string            // "Routine", "Soon", "Immediate"
-    support_type: string       // "Peer", "Professional", "Crisis"
-    accessibility: string[]    // ["Low Cost", "Online", "English"]
-    reasoning: string          // Summary of why it scored this way
+    issue_type: string                  // "mental_health", "gambling", "alcohol", etc.
+    urgency: string                     // "routine", "soon", "urgent", "immediate_crisis"
+    severity_score: number              // 1-4
+    needs_immediate_resources: boolean  // true if crisis
+    confidence: number                  // 0-1 (e.g., 0.85)
+    reasoning: string                   // Why these scores were given
+    personalized_note: string           // Friendly message to user
   }
   recommended_pathway: Array<{
     name: string
     type: string
-    desc: string
-    [key: string]: any
-  }>
-  personalized_note: string
-  Locations: Array<{
+    contact?: string
+    availability?: string
+    description: string
     [key: string]: any
   }>
 }
@@ -54,10 +54,8 @@ export interface AssessmentSubmission {
   answer_urgency: string
   answer_safety: string
   answer_constraints: string
-  location: {
-    latitude: number
-    longitude: number
-  } | null
+  latitude: number | null
+  longitude: number | null
 }
 
 export interface Pathway {

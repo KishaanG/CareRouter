@@ -2,189 +2,155 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Heart } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
 import ChatInput from '@/components/ChatInput'
+import TypingIndicator from '@/components/TypingIndicator'
 import { questions } from '@/data/questions'
-
+import { AssessmentSubmission, AssessmentResponse } from '@/types'
+import { API_URL } from '@/lib/api'
 interface ChatEntry {
   id: string
-  type: 'bot' | 'user'
+  type: 'user' | 'bot'
   message: string
   timestamp: Date
 }
 
 export default function AssessmentPage() {
   const router = useRouter()
+  
+  // Chat state
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([])
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1) // Start at -1 to show welcome first
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1)
   const [responses, setResponses] = useState<Record<number, string>>({})
-  const [isTyping, setIsTyping] = useState(false)
   const [waitingForAnswer, setWaitingForAnswer] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-  const hasStartedRef = useRef(false)  // Use ref instead of state
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  
   const chatEndRef = useRef<HTMLDivElement>(null)
-
-  // Auto-scroll to bottom when new messages arrive
+  const hasLocationRequestedRef = useRef(false)
+  const hasStartedRef = useRef(false)
+  
+  // Auto-start the assessment when component mounts
+  useEffect(() => {
+    if (!hasStartedRef.current) {
+      hasStartedRef.current = true
+      // Start asking questions after a short delay
+      setTimeout(() => {
+        askNextQuestion(0)
+      }, 500)
+    }
+  }, [])
+  
+  // Request location on mount
+  useEffect(() => {
+    if (!hasLocationRequestedRef.current) {
+      hasLocationRequestedRef.current = true
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            })
+            console.log('✅ Location accessed:', position.coords.latitude, position.coords.longitude)
+          },
+          (error) => {
+            console.log('ℹ️ Location permission denied or unavailable - continuing without location')
+            // This is fine - location is optional
+            setLocation(null)
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        )
+      } else {
+        console.log('ℹ️ Geolocation not supported by browser')
+      }
+    }
+  }, [])
+  
+  // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isTyping])
-
-  // Request location access when component mounts
-  useEffect(() => {
-    // Prevent double initialization (React Strict Mode)
-    if (hasStartedRef.current) return
-    hasStartedRef.current = true
-
-    // Request location access
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          })
-          console.log('Location accessed:', {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          })
-        },
-        (error) => {
-          console.warn('Location access denied or unavailable:', error.message)
-          // Continue even if location denied
-        }
-      )
-    }
-
-    const welcomeMessage: ChatEntry = {
-      id: 'welcome',
-      type: 'bot',
-      message: "Hi! I'm here to help you find the right mental health support. 💙\n\nI'll ask you a few quick questions. Just answer in your own words - there are no wrong answers.\n\nReady? Let's begin.",
-      timestamp: new Date(),
-    }
-    setChatHistory([welcomeMessage])
-
-    // Show first question after brief delay
-    setTimeout(() => {
-      askQuestion(0)
-    }, 2000)
-  }, [])
-
-  const askQuestion = (index: number) => {
-    // This function should only be called for valid question indices
-    if (index >= questions.length) {
+  
+  const askNextQuestion = (questionIndex: number) => {
+    if (questionIndex >= questions.length) {
       return
     }
-
-    // Prevent asking the same question twice
-    if (index === currentQuestionIndex && waitingForAnswer) {
-      return
-    }
-
-    const question = questions[index]
-    setCurrentQuestionIndex(index)
     
+    setCurrentQuestionIndex(questionIndex)
     setIsTyping(true)
+    setWaitingForAnswer(false)
+    
     setTimeout(() => {
       setIsTyping(false)
+      const question = questions[questionIndex]
+      const questionText = question.subtitle 
+        ? `${question.text}\n\n${question.subtitle}`
+        : question.text
       
-      const timestamp = Date.now()
       const questionMessage: ChatEntry = {
-        id: `question-${index}-${timestamp}`,
+        id: `question-${questionIndex}-${Date.now()}`,
         type: 'bot',
-        message: question.text,
+        message: questionText,
         timestamp: new Date(),
       }
-
-      setChatHistory(prev => [...prev, questionMessage])
-
-      // Add subtitle if exists
-      if (question.subtitle) {
-        setTimeout(() => {
-          const subtitleMessage: ChatEntry = {
-            id: `subtitle-${index}-${timestamp}`,
-            type: 'bot',
-            message: question.subtitle || '',
-            timestamp: new Date(),
-          }
-          setChatHistory(prev => [...prev, subtitleMessage])
-        }, 400)
-      }
-
-      // Show note if exists
-      if (question.note) {
-        setTimeout(() => {
-          const noteMessage: ChatEntry = {
-            id: `note-${index}-${timestamp}`,
-            type: 'bot',
-            message: `⚠️ ${question.note}`,
-            timestamp: new Date(),
-          }
-          setChatHistory(prev => [...prev, noteMessage])
-        }, question.subtitle ? 800 : 400)
-      }
-
+      
+      setChatHistory((prev) => [...prev, questionMessage])
       setWaitingForAnswer(true)
-    }, 600)
+    }, 1000)
   }
-
-  const handleUserResponse = (response: string) => {
+  
+  const handleUserResponse = (answer: string) => {
     if (!waitingForAnswer || isComplete) return
-
-    // Add user's answer to chat
+    
+    setWaitingForAnswer(false)
+    
     const userMessage: ChatEntry = {
-      id: `answer-${currentQuestionIndex}-${Date.now()}`,
+      id: `user-${currentQuestionIndex}-${Date.now()}`,
       type: 'user',
-      message: response,
+      message: answer,
       timestamp: new Date(),
     }
-
-    setChatHistory(prev => [...prev, userMessage])
-    setWaitingForAnswer(false)
-
-    // Store the response as plain text
-    const updatedResponses = { ...responses, [currentQuestionIndex]: response }
-    setResponses(updatedResponses)
-
-    // Move to next question immediately (no "thanks for sharing" - less robotic)
-    const nextIndex = currentQuestionIndex + 1
     
-    // Check if this was the last question
-    if (nextIndex >= questions.length) {
-      // Complete assessment with updated responses
-      setTimeout(() => {
-        completeAssessment(updatedResponses)
-      }, 800)
+    setChatHistory((prev) => [...prev, userMessage])
+    
+    const updatedResponses = {
+      ...responses,
+      [currentQuestionIndex]: answer,
+    }
+    setResponses(updatedResponses)
+    
+    const nextQuestionIndex = currentQuestionIndex + 1
+    
+    if (nextQuestionIndex >= questions.length) {
+      completeAssessment(updatedResponses)
     } else {
       setTimeout(() => {
-        askQuestion(nextIndex)
+        askNextQuestion(nextQuestionIndex)
       }, 800)
     }
   }
-
+  
   const completeAssessment = async (finalResponses: Record<number, string>) => {
     setIsComplete(true)
     setIsTyping(true)
     
-    // Format responses to match backend's expected format
-    const assessmentData = {
-      primary_concern: finalResponses[0] || "",
-      answer_distress: finalResponses[1] || "",
-      answer_functioning: finalResponses[2] || "",
-      answer_urgency: finalResponses[3] || "",
-      answer_safety: finalResponses[4] || "",
-      answer_constraints: finalResponses[5] || "",
-      location: userLocation ? {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude
-      } : null
+    const assessmentData: AssessmentSubmission = {
+      primary_concern: finalResponses[0] || '',
+      answer_distress: finalResponses[1] || '',
+      answer_functioning: finalResponses[2] || '',
+      answer_urgency: finalResponses[3] || '',
+      answer_safety: finalResponses[4] || '',
+      answer_constraints: finalResponses[5] || '',
+      latitude: location?.latitude || null,
+      longitude: location?.longitude || null,
     }
-
+    
     console.log('=== Assessment Data (JSON for Backend) ===')
     console.log(JSON.stringify(assessmentData, null, 2))
     console.log('==========================================')
-
+    
     setTimeout(async () => {
       setIsTyping(false)
       
@@ -195,91 +161,92 @@ export default function AssessmentPage() {
         timestamp: new Date(),
       }
       
-      setChatHistory(prev => [...prev, finalMessage])
-
-      // TODO: Person 2 - Send to backend
-      // Example:
-      // const result = await fetch(`${API_URL}/api/route`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(assessmentData)
-      // })
-      // const pathwayData = await result.json()
-      // Backend returns:
-      // {
-      //   scores: { severity_tier, urgency, support_type, accessibility, reasoning },
-      //   recommended_pathway: [...],
-      //   personalized_note: "...",
-      //   Locations: [...]
-      // }
-      // Store in localStorage or state management
-      // localStorage.setItem('pathway', JSON.stringify(pathwayData))
+      setChatHistory((prev) => [...prev, finalMessage])
+      
+      try {
+        console.log('📤 Sending to backend:', `${API_URL}/api/generate-plan`)
+        const result = await fetch(`${API_URL}/api/generate-plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assessmentData),
+        })
+        
+        if (!result.ok) {
+          const errorText = await result.text()
+          console.error('❌ Backend error:', result.status, errorText)
+          throw new Error(`HTTP error! status: ${result.status}`)
+        }
+        
+        const pathwayData: AssessmentResponse = await result.json()
+        console.log('✅ Pathway received from backend:', pathwayData)
+        localStorage.setItem('pathway', JSON.stringify(pathwayData))
+      } catch (error) {
+        console.error('❌ Error submitting assessment:', error)
+        // Show user-friendly error message
+        const errorMessage: ChatEntry = {
+          id: `error-${Date.now()}`,
+          type: 'bot',
+          message: "I'm having trouble connecting to the server. Please make sure the backend is running at http://localhost:8000",
+          timestamp: new Date(),
+        }
+        setChatHistory((prev) => [...prev, errorMessage])
+      }
       
       setTimeout(() => {
         router.push('/results')
       }, 2000)
     }, 1000)
   }
-
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Heart className="w-6 h-6 text-primary-600" />
-            <h1 className="text-xl font-bold text-gray-900">CareRouter</h1>
-          </div>
-          <div className="text-sm text-gray-600">
-            {currentQuestionIndex >= 0 && (
-              <>Question {Math.min(currentQuestionIndex + 1, questions.length)} of {questions.length}</>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Chat Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-3xl mx-auto">
-          {chatHistory.map((entry) => (
-            <ChatMessage
-              key={entry.id}
-              message={entry.message}
-              isBot={entry.type === 'bot'}
-              timestamp={entry.timestamp}
-            />
-          ))}
-
-          {/* Typing Indicator */}
-          {isTyping && (
-            <div className="flex justify-start mb-4">
-              <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+    <>
+      <div className="app-background" />
+      <div className="chat-view min-h-screen flex flex-col">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 pb-32">
+          <div className="max-w-3xl mx-auto">
+            {/* Header with Welcome Text - No box, just text */}
+            <div className="text-center py-8 mb-6">
+              <h1 className="welcome-text text-queens-navy mb-2">
+                Hi there, how can I help you today?
+              </h1>
+              {currentQuestionIndex >= 0 && currentQuestionIndex < questions.length && (
+                <div className="text-sm text-text-secondary font-medium mt-3">
+                  Question {currentQuestionIndex + 1} of {questions.length}
                 </div>
-              </div>
+              )}
             </div>
-          )}
-
-          <div ref={chatEndRef} />
+            
+            {/* Chat Messages */}
+            {chatHistory.map((entry) => (
+              <ChatMessage
+                key={entry.id}
+                message={entry.message}
+                isBot={entry.type === 'bot'}
+                timestamp={entry.timestamp}
+              />
+            ))}
+            
+            {isTyping && <TypingIndicator />}
+            
+            <div ref={chatEndRef} />
+          </div>
+        </div>
+        
+        {/* Input Area - Fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 p-6 z-20">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput
+              onSend={handleUserResponse}
+              placeholder={isComplete ? 'Assessment complete' : waitingForAnswer ? "Tell me what's on your mind..." : 'Please wait...'}
+              disabled={!waitingForAnswer || isComplete}
+            />
+            <p className="text-xs text-text-secondary text-center mt-4">
+              This tool does not diagnose or replace professional care. Crisis support: call 988
+            </p>
+          </div>
         </div>
       </div>
-
-      {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 px-4 py-4">
-        <div className="max-w-3xl mx-auto">
-          <ChatInput
-            onSend={handleUserResponse}
-            placeholder={isComplete ? "Assessment complete" : waitingForAnswer ? "Type your answer..." : "Please wait..."}
-            disabled={!waitingForAnswer || isComplete}
-          />
-          <p className="text-xs text-gray-500 text-center mt-3">
-            This tool does not diagnose or replace professional care. Crisis support: call 988
-          </p>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
