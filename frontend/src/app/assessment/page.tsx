@@ -7,7 +7,7 @@ import ChatInput from '@/components/ChatInput'
 import TypingIndicator from '@/components/TypingIndicator'
 import { questions } from '@/data/questions'
 import { AssessmentSubmission, AssessmentResponse } from '@/types'
-import { API_URL } from '@/lib/api'
+import { API_URL } from '@/server/api'
 interface ChatEntry {
   id: string
   type: 'user' | 'bot'
