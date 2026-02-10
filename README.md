@@ -1,6 +1,6 @@
-Here is the formatted README.md for CareRouter. I have organized the technical specifications, setup instructions, and safety features into a clean, professional structure suitable for a GitHub repository.
 
 🏥 CareRouter
+
 CareRouter is an AI-powered mental health triage and navigation system designed to connect individuals in crisis with the right support at the right time. By streamlining the path to help, CareRouter reduces cognitive load during high-stress moments and provides actionable resources immediately.
 
 🌟 Key Features
